@@ -1,11 +1,17 @@
-FROM python:3.14-slim
+# La version que estamos utilizando y el slim es una version menos pesada
+FROM python:3.14-slim 
 
+# Entra o genera esta direccion en el contenedor
 WORKDIR /backend
 
+# Copia todo lo de requirements dentro de la carpeta
 COPY requirements.txt .
 
+# Corre este comando e instala todo lo que tiene requirements.txt
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
+# Copia todo lo del directorio backend en el contenedor
 COPY ./backend .
 
+# Comando para poder escuchar en http y que escuche desde cualquier direccion
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
