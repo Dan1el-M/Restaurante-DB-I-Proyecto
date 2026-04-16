@@ -15,6 +15,20 @@ services:
     networks:
       - restaurant-network
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: keycloak
+    command: start-dev --import-realm 
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+    ports:
+      - "${KEYCLOAK_PORT}:8080"
+    volumes:
+      - ./backend/app/restaurant-realm.json:/opt/keycloak/data/import/restaurant-realm.json
+    networks:
+      - restaurant-network
+
   api:
     build: ./backend
     container_name: restaurant-api

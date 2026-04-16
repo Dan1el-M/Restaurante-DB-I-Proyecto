@@ -1,0 +1,42 @@
+kubernetes trabaja como con archivos separados, entonces la diferenia es:
+
+Compose = arranque completo del proyecto
+Kubernetes = demostración de escalabilidad/orquestación
+
+kubernetes trabaja con archvios .YAML y cada archivo sirve para decirle a kubernetes
+lo que queremos que "exista".
+
+kubernetes no reemplza compose, kubertenees es como lo que nos permite correr
+varias copias de algunas cosas a la vez, por eso es escalable.
+
+#######   explicacion que me dio chat sobre las 4 secciones    ######################
+
+1. Deployment
+Le dice a Kubernetes:
+qué imagen correr
+cuántas copias quieres
+qué puerto usa
+variables de entorno
+Ejemplo mental:
+“Quiero 3 copias de mi API corriendo siempre.”
+Eso en Kubernetes se expresa con un Deployment.
+
+2. Service
+Le da una dirección estable a uno o varios pods.
+Ejemplo mental:
+tienes 3 pods de la API
+sus nombres/IP cambian
+el Service les pone una “puerta de entrada” fija
+Entonces otros servicios pueden hablarle a api-service sin importar qué pods cambien.
+
+3. ConfigMap
+Sirve para meter configuración, por ejemplo:
+archivo de Nginx
+variables no sensibles
+rutas
+
+4. Secret
+Parecido a ConfigMap, pero para cosas sensibles:
+passwords
+tokens
+claves
