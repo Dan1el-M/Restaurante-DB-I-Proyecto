@@ -7,7 +7,7 @@ class User(Base):
     
     # Columnas
     user_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre = Column(String(64), nullable=False)
+    user_name = Column(String(64), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
     
     # Relaciones
@@ -17,4 +17,4 @@ class User(Base):
     reservations = relationship("Reservation", back_populates="client")
     
     def __repr__(self):
-        return f"<User(user_id={self.user_id}, nombre='{self.nombre}', role_id={self.role_id})>"
+        return f"<User(user_id={self.user_id}, user_name='{self.user_name}', role_id={self.role_id})>"

@@ -49,7 +49,6 @@ CREATE TABLE Orders (
     client_id       INT         NOT NULL,
     order_type      VARCHAR(64) NOT NULL,
     restaurant_id   INT         NOT NULL,
-    order_status    INT         NOT NULL,
 
     CONSTRAINT FK_Orders_Restaurants FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id),
     CONSTRAINT FK_Orders_Table       FOREIGN KEY (table_id)      REFERENCES Tables(table_id),

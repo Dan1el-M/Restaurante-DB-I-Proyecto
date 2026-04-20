@@ -7,10 +7,10 @@ class Role(Base):
     
     # Columnas
     role_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre = Column(String(64), nullable=False)
+    role_name = Column(String(64), nullable=False)
     
     # Relaciones
     users = relationship("User", back_populates="role")
     
     def __repr__(self):
-        return f"<Role(role_id={self.role_id}, nombre='{self.nombre}')>"
+        return f"<Role(role_id={self.role_id}, role_name='{self.role_name}')>"
