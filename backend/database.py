@@ -6,22 +6,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# URL de conexión a PostgreSQL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/restaurant_db")
+# URL de conexion a PostgreSQL
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Crear el motor de conexión
-engine = create_engine(DATABASE_URL, echo=True)  # echo=True para ver SQL en consola
+# Crear el motor de conexion
+engine = create_engine(DATABASE_URL, echo=True)  # El echo permite ver en consola
 
-# Fábrica de sesiones
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Fabrica de sesiones
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) # Asocia a la base de datos
 
 # Clase base para todos los modelos
-Base = declarative_base()
+Base = declarative_base() # De aqui heredan a todos los modelos
 
 # Dependencia para FastAPI
-def get_db():
-    db = SessionLocal()
+def get_db(): # Cada vez que hay una petición
+    db = SessionLocal() # Crear una sesion
     try:
-        yield db
+        yield db # Intentar pasarla a FastAPI
     finally:
-        db.close()
+        db.close() # Cerrar sesion

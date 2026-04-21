@@ -16,6 +16,7 @@ class Menu(Base):
     order_items = relationship("OrderItem", back_populates="menu")
     
     # Restricciones
+    # No pueden existir dos platos con el mismo nombre
     __table_args__ = (
         UniqueConstraint('restaurant_id', 'dish_name', name='unique_dish_per_restaurant'),
     )
