@@ -24,6 +24,7 @@ services:
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
     ports:
       - "${KEYCLOAK_PORT}:8080"
+      #este es el json que se descarga de keycloak para tener persistencia de los datos
     volumes:
       - ./backend/app/restaurant-realm.json:/opt/keycloak/data/import/restaurant-realm.json
     networks:
