@@ -1,32 +1,107 @@
 # backend/app/main.py
-from fastapi import Depends, FastAPI
+"""
+Servidor API para gestión de restaurantes con Keycloak
+Estructura:
+- Rutas públicas (ping, health)
+- Rutas de autenticación (registro, login)
+- Rutas protegidas por rol (client, admin)
+"""
 
-from backend.app.autentificador.keycloak_dependencies import require_role
+import os
+from fastapi import Depends, FastAPI, APIRouter
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Importar middleware de autorización
 from backend.app.autentificador.keycloak_dependencies import get_current_user, require_role
 
-app = FastAPI()
+# Importar routers
+from backend.app.routers import restaurants, reservations, menus, users
+
+# ========== CREAR APLICACIÓN ==========
+
+app = FastAPI(
+    title="Restaurante API",
+    description="API para gestión de restaurantes, reservaciones y menús",
+    version="1.0.0"
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ========== RUTAS PÚBLICAS ==========
+
+@app.get("/ping")
+def ping():
+    """Health check básico"""
+    return {"message": "pong"}
 
 @app.get("/")
 def root():
-    return {"message": "API funcionando"}
+    """Ruta raíz"""
+    return {"message": "API funcionando", "version": "1.0.0"}
 
-#ambos usuarios se estan haciendo manuelmente por el momento
+@app.get("/health")
+def health_check():
+    """Health check para monitoreo"""
+    return {"status": "ok"}
 
-#ruta para el admin
-@app.get("/admin")
-def admin_route(user=Depends(require_role("admin"))):
-    return {"message": "solo admin", "user": user.get("preferred_username")}
+# ========== RUTAS DE AUTENTICACIÓN ==========
 
-#ruta para el client
-@app.get("/client")
-def client_route(user=Depends(require_role("client"))):
-    return {"message": "solo client", "user": user.get("preferred_username")}
+@app.post("/auth/register")
+def register():
+    """Registro de usuarios"""
+    # TODO: Implementar registro
+    pass
 
-#rutas temporales para preubas
-@app.get("/test-validate")
-def test_validate(payload=Depends(get_current_user)):
-    return payload
+@app.post("/auth/login")
+def login():
+    """Login de usuarios"""
+    # TODO: Implementar login
+    pass
 
-@app.get("/test-client")
-def test_client(payload=Depends(require_role("client"))):
-    return {"message": "ok", "payload": payload}
+# ========== ROUTERS PROTEGIDOS POR ROL ==========
+
+# --------- CLIENT ROUTES ---------
+# Rutas que requieren rol 'client'
+client_routes = APIRouter(dependencies=[Depends(require_role("client"))])
+
+client_routes.include_router(restaurants.router, tags=["Client - Restaurants"])
+client_routes.include_router(reservations.router, tags=["Client - Reservations"])
+client_routes.include_router(menus.router, tags=["Client - Menus"])
+
+app.include_router(client_routes)
+
+# --------- ADMIN ROUTES ---------
+# Rutas que requieren rol 'admin'
+admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
+
+admin_routes.include_router(users.router, tags=["Admin - Users"])
+
+app.include_router(admin_routes)
+
+# ========== PUERTO ==========
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    port = int(os.getenv("BACKEND_PORT", 8000))
+    host = os.getenv("BACKEND_HOST", "0.0.0.0")
+    
+    print(f"🚀 Servidor corriendo en {host}:{port}")
+    
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=True
+    )
