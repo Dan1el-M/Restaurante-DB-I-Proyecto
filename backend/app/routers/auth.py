@@ -1,0 +1,158 @@
+"""
+Router de autenticación: registro y login
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.models.users import User
+from backend.models.roles import Role
+from backend.schemas.user import UserCreate, UserResponse
+from backend.app.autentificador.keycloak_register_admin import create_user_in_keycloak
+from backend.app.autentificador.keycloak_register_client import login as keycloak_login
+
+router = APIRouter(prefix="/auth", tags=["Autenticación"])
+
+
+# ========== ESQUEMAS ==========
+
+class RegisterRequest:
+    """Esquema para el registro"""
+    def __init__(self, username: str, email: str, password: str):
+        self.username = username
+        self.email = email
+        self.password = password
+
+
+class LoginRequest:
+    """Esquema para el login"""
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+
+# ========== POST /auth/register ==========
+
+@router.post("/register", status_code=201)
+def register(
+    username: str,
+    email: str,
+    password: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Registra un nuevo usuario en Keycloak y en la BD
+    
+    Args:
+        username: nombre de usuario
+        email: email del usuario
+        password: contraseña
+    
+    Retorna: {'message': 'Usuario creado', 'user_id': id}
+    """
+    
+    # ========== VALIDACIONES ==========
+    
+    if not username or not email or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="username, email y password son requeridos"
+        )
+    
+    # Validar que el usuario no exista en la BD
+    existing_user = db.query(User).filter(User.user_name == username).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario ya existe"
+        )
+    
+    # ========== PASO 1: CREAR EN KEYCLOAK ==========
+    
+    try:
+        keycloak_id = create_user_in_keycloak(
+            username=username,
+            email=email,
+            password=password,
+            role="client"  # Los que se registran son clientes
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear usuario en Keycloak: {str(e)}"
+        )
+    
+    # ========== PASO 2: CREAR EN LA BD ==========
+    
+    try:
+        new_user = User(
+            user_name=username,
+            keycloak_id=keycloak_id,
+            role_id=2  # 2 es el rol de cliente
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    
+    except Exception as e:
+        # Si falla en la BD, intentar eliminar el usuario de Keycloak
+        from backend.app.autentificador.keycloak_register_admin import delete_user_from_keycloak
+        try:
+            delete_user_from_keycloak(keycloak_id)
+        except:
+            pass
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear usuario en BD: {str(e)}"
+        )
+    
+    # ========== RESPUESTA ==========
+    
+    return {
+        "message": "Usuario creado correctamente",
+        "user_id": new_user.user_id,
+        "username": new_user.user_name
+    }
+
+
+# ========== POST /auth/login ==========
+
+@router.post("/login")
+def login(
+    username: str,
+    password: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Autentica un usuario contra Keycloak y devuelve el token
+    
+    Args:
+        username: nombre de usuario
+        password: contraseña
+    
+    Retorna: {'access_token': token, 'refresh_token': token, ...}
+    """
+    
+    # ========== VALIDACIONES ==========
+    
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="username y password son requeridos"
+        )
+    
+    # ========== HACER LOGIN EN KEYCLOAK ==========
+    
+    try:
+        token_response = keycloak_login(username, password)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales inválidas"
+        )
+    
+    # ========== RESPUESTA ==========
+    
+    return token_response

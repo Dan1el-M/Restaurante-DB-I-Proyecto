@@ -8,6 +8,7 @@ Estructura:
 """
 
 import os
+import uvicorn
 from fastapi import Depends, FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -19,7 +20,7 @@ load_dotenv()
 from backend.app.autentificador.keycloak_dependencies import get_current_user, require_role
 
 # Importar routers
-from backend.app.routers import restaurants, reservations, menus, users
+from backend.app.routers import auth, restaurants, reservations, menus, users
 
 # ========== CREAR APLICACIÓN ==========
 
@@ -40,6 +41,8 @@ app.add_middleware(
 
 # ========== RUTAS PÚBLICAS ==========
 
+#estas pdoemos eliminarlas al verdad, solo las dejo para pruebas de conexión 
+
 @app.get("/ping")
 def ping():
     """Health check básico"""
@@ -57,17 +60,8 @@ def health_check():
 
 # ========== RUTAS DE AUTENTICACIÓN ==========
 
-@app.post("/auth/register")
-def register():
-    """Registro de usuarios"""
-    # TODO: Implementar registro
-    pass
-
-@app.post("/auth/login")
-def login():
-    """Login de usuarios"""
-    # TODO: Implementar login
-    pass
+# Rutas públicas de autenticación (sin protección)
+app.include_router(auth.router)
 
 # ========== ROUTERS PROTEGIDOS POR ROL ==========
 
@@ -92,8 +86,8 @@ app.include_router(admin_routes)
 # ========== PUERTO ==========
 
 if __name__ == "__main__":
-    import uvicorn
     
+    #Puerto y host configurables por variables de entorno PERO MEJOR REVISARLAS
     port = int(os.getenv("BACKEND_PORT", 8000))
     host = os.getenv("BACKEND_HOST", "0.0.0.0")
     
