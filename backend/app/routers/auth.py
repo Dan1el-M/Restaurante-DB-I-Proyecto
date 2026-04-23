@@ -2,6 +2,8 @@
 Router de autenticación: registro y login
 """
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,18 @@ from backend.app.autentificador.keycloak_register_admin import create_user_in_ke
 from backend.app.autentificador.keycloak_register_client import login as keycloak_login
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
+KEYCLOAK_REQUIRED_ENV = ["KEYCLOAK_URL", "KEYCLOAK_REALM", "KEYCLOAK_ADMIN_PASSWORD"]
+
+
+def _missing_keycloak_env_vars():
+    missing = [var for var in KEYCLOAK_REQUIRED_ENV if not os.getenv(var)]
+
+    # El usuario admin puede venir en cualquiera de estas dos variables
+    admin_user = os.getenv("KEYCLOAK_ADMIN_USER") or os.getenv("KEYCLOAK_ADMIN_USERNAME")
+    if not admin_user:
+        missing.append("KEYCLOAK_ADMIN_USER o KEYCLOAK_ADMIN_USERNAME")
+
+    return missing
 
 # ========== POST /auth/register ==========
 
@@ -21,7 +35,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     username = payload.username
     email = payload.email
     password = payload.password
-    db: Session = Depends(get_db)
 
     """
     Registra un nuevo usuario en Keycloak y en la BD
@@ -40,6 +53,15 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="username, email y password son requeridos"
+        )
+    missing_keycloak_vars = _missing_keycloak_env_vars()
+    if missing_keycloak_vars:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Servicio de autenticación no configurado. "
+                f"Faltan variables: {', '.join(missing_keycloak_vars)}"
+            ),
         )
     
     # Validar que el usuario no exista en la BD
@@ -60,8 +82,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
             role="client"  # Los que se registran son clientes
         )
     except Exception as e:
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        if "Faltan variables de entorno" in str(e):
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status_code,
             detail=f"Error al crear usuario en Keycloak: {str(e)}"
         )
     
@@ -77,13 +103,17 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         new_user = User(
             user_name=username,
             keycloak_id=keycloak_id,
-            role_id=role
+            role_id=role.role_id
         )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-    
+    except HTTPException:
+        db.rollback()
+        raise
+
     except Exception as e:
+        db.rollback()
         # Si falla en la BD, intentar eliminar el usuario de Keycloak
         from backend.app.autentificador.keycloak_register_admin import delete_user_from_keycloak
         try:
@@ -108,6 +138,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 # ========== POST /auth/login ==========
 
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest):
     token_response = keycloak_login(payload.username, payload.password)
     return token_response
