@@ -78,6 +78,8 @@ def create_user_in_keycloak(username: str, email: str, password: str, role: str 
         "emailVerified": True,
         "enabled": True,
         "firstName": username,
+        "lastName": username,
+        "requiredActions": [],
         "credentials": [
             {
                 "type": "password",

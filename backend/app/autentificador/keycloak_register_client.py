@@ -1,14 +1,7 @@
-"""
-Funciones para que los clientes hagan login en Keycloak
-"""
 
-import os
-import requests
-import time
-from dotenv import load_dotenv
+from .keycloak_login import login
 
-load_dotenv()
-
+__all__ = ["login"]
 
 # ========== LOGIN ==========
 
