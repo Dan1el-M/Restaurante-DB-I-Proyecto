@@ -15,6 +15,7 @@ from backend.app.autentificador.keycloak_register_admin import create_user_in_ke
 from backend.app.autentificador.keycloak_register_client import login as keycloak_login
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
+
 KEYCLOAK_REQUIRED_ENV = ["KEYCLOAK_URL", "KEYCLOAK_REALM", "KEYCLOAK_ADMIN_PASSWORD"]
 
 
