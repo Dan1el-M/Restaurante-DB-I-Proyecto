@@ -69,7 +69,7 @@ app.include_router(auth.router)
 # Rutas que requieren rol 'client'
 client_routes = APIRouter(dependencies=[Depends(require_role("client"))])
 
-client_routes.include_router(restaurants.router, tags=["Client - Restaurants"])
+client_routes.include_router(users.router)
 
 app.include_router(client_routes)
 
