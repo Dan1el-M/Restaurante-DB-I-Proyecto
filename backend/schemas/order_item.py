@@ -1,21 +1,25 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class OrderItemBase(BaseModel):
-    order_id: int
-    menu_id: int
-    quantity: int
-    price: float
+    order_id: int = Field(gt=0)
+    menu_id: int = Field(gt=0)
+    quantity: int = Field(gt=0)
+    price: float = Field(gt=0)
+
 
 class OrderItemCreate(OrderItemBase):
-    pass # Hereda todo de Base
+    pass
+
 
 class OrderItemUpdate(BaseModel):
-    order_id: int | None = None
-    menu_id: int | None = None
-    quantity: int | None = None
-    price: float | None = None
+    order_id: int | None = Field(default=None, gt=0)
+    menu_id: int | None = Field(default=None, gt=0)
+    quantity: int | None = Field(default=None, gt=0)
+    price: float | None = Field(default=None, gt=0)
+
 
 class OrderItemResponse(OrderItemBase):
-    order_item_id: int
+    order_item_id: int = Field(gt=0)
 
     model_config = ConfigDict(from_attributes=True)
