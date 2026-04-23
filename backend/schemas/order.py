@@ -1,22 +1,25 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class OrderBase(BaseModel):
-    table_id: int | None = None
-    client_id: int
-    order_type: str
-    restaurant_id: int
+    table_id: int | None = Field(default=None, gt=0)
+    client_id: int = Field(gt=0)
+    order_type: str = Field(min_length=1, max_length=64)
+    restaurant_id: int = Field(gt=0)
+
 
 class OrderCreate(OrderBase):
-    pass # Hereda todo de Base
+    pass
+
 
 class OrderUpdate(BaseModel):
-    table_id: int | None = None
-    client_id: int | None = None
-    order_type: str | None = None
-    restaurant_id: int | None = None
+    table_id: int | None = Field(default=None, gt=0)
+    client_id: int | None = Field(default=None, gt=0)
+    order_type: str | None = Field(default=None, min_length=1, max_length=64)
+    restaurant_id: int | None = Field(default=None, gt=0)
 
-# Respuesta (lo que devuelve la API)
+
 class OrderResponse(OrderBase):
-    order_id: int
+    order_id: int = Field(gt=0)
 
     model_config = ConfigDict(from_attributes=True)

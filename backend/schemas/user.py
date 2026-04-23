@@ -1,18 +1,21 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class UserBase(BaseModel):
-    user_name: str
-    role_id: int
+    user_name: str = Field(min_length=1, max_length=64)
+    role_id: int = Field(gt=0)
+
 
 class UserCreate(UserBase):
-    pass # Hereda todo
+    pass
+
 
 class UserUpdate(BaseModel):
-    user_name: str | None = None
-    role_id: int | None = None
+    user_name: str | None = Field(default=None, min_length=1, max_length=64)
+    role_id: int | None = Field(default=None, gt=0)
 
-# Lo que devuelve el API
+
 class UserResponse(UserBase):
-    user_id: int
+    user_id: int = Field(gt=0)
 
     model_config = ConfigDict(from_attributes=True)

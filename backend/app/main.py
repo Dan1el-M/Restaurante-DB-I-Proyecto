@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Importar middleware de autorización
-from backend.app.autentificador.keycloak_dependencies import get_current_user, require_role
+from .autentificador.keycloak_dependencies import get_current_user, require_role
 
 # Importar routers
 from backend.app.routers import auth, restaurants, reservations, menus, users
@@ -70,8 +70,6 @@ app.include_router(auth.router)
 client_routes = APIRouter(dependencies=[Depends(require_role("client"))])
 
 client_routes.include_router(restaurants.router, tags=["Client - Restaurants"])
-client_routes.include_router(reservations.router, tags=["Client - Reservations"])
-client_routes.include_router(menus.router, tags=["Client - Menus"])
 
 app.include_router(client_routes)
 
@@ -79,7 +77,6 @@ app.include_router(client_routes)
 # Rutas que requieren rol 'admin'
 admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
 
-admin_routes.include_router(users.router, tags=["Admin - Users"])
 
 app.include_router(admin_routes)
 
@@ -94,7 +91,7 @@ if __name__ == "__main__":
     print(f"🚀 Servidor corriendo en {host}:{port}")
     
     uvicorn.run(
-        "main:app",
+        "backend.app.main:app",
         host=host,
         port=port,
         reload=True
