@@ -8,39 +8,21 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.users import User
 from backend.models.roles import Role
-from backend.schemas.user import UserCreate, UserResponse
+from backend.schemas.auth import RegisterRequest, RegisterResponse, LoginRequest
 from backend.app.autentificador.keycloak_register_admin import create_user_in_keycloak
 from backend.app.autentificador.keycloak_register_client import login as keycloak_login
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
-
-# ========== ESQUEMAS ==========
-
-class RegisterRequest:
-    """Esquema para el registro"""
-    def __init__(self, username: str, email: str, password: str):
-        self.username = username
-        self.email = email
-        self.password = password
-
-
-class LoginRequest:
-    """Esquema para el login"""
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
-
-
 # ========== POST /auth/register ==========
 
-@router.post("/register", status_code=201)
-def register(
-    username: str,
-    email: str,
-    password: str,
+@router.post("/register", status_code=201, response_model=RegisterResponse)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+    username = payload.username
+    email = payload.email
+    password = payload.password
     db: Session = Depends(get_db)
-):
+
     """
     Registra un nuevo usuario en Keycloak y en la BD
     
@@ -86,10 +68,16 @@ def register(
     # ========== PASO 2: CREAR EN LA BD ==========
     
     try:
+        role = db.query(Role).filter(Role.role_name == "client").first()
+        if not role:
+            raise HTTPException(
+                status_code=500,
+                detail="Rol 'client' no existe en la base de datos"
+            )
         new_user = User(
             user_name=username,
             keycloak_id=keycloak_id,
-            role_id=2  # 2 es el rol de cliente
+            role_id=role
         )
         db.add(new_user)
         db.commit()
@@ -120,39 +108,6 @@ def register(
 # ========== POST /auth/login ==========
 
 @router.post("/login")
-def login(
-    username: str,
-    password: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Autentica un usuario contra Keycloak y devuelve el token
-    
-    Args:
-        username: nombre de usuario
-        password: contraseña
-    
-    Retorna: {'access_token': token, 'refresh_token': token, ...}
-    """
-    
-    # ========== VALIDACIONES ==========
-    
-    if not username or not password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="username y password son requeridos"
-        )
-    
-    # ========== HACER LOGIN EN KEYCLOAK ==========
-    
-    try:
-        token_response = keycloak_login(username, password)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales inválidas"
-        )
-    
-    # ========== RESPUESTA ==========
-    
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    token_response = keycloak_login(payload.username, payload.password)
     return token_response

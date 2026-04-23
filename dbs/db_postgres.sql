@@ -5,9 +5,10 @@ CREATE TABLE Roles (
 );
 
 CREATE TABLE Users (
-    user_id         SERIAL      PRIMARY KEY,
-    user_name       VARCHAR(64) NOT NULL,
-    role_id         INT         NOT NULL,
+    user_id         SERIAL       PRIMARY KEY,
+    user_name       VARCHAR(64)  NOT NULL,
+    role_id         INT          NOT NULL,
+    keycloak_id     VARCHAR(255) NOT NULL UNIQUE,
 
     CONSTRAINT FK_Users_Roles FOREIGN KEY (role_id) REFERENCES Roles(role_id)
 );
