@@ -64,6 +64,8 @@ def health_check():
 app.include_router(auth.router)
 
 # ========== ROUTERS PROTEGIDOS POR ROL ==========
+# --------- AUTHENTICATED ROUTES (cualquier usuario con token válido) ---------
+app.include_router(users.router, dependencies=[Depends(get_current_user)])
 
 # --------- CLIENT ROUTES ---------
 # Rutas que requieren rol 'client'
