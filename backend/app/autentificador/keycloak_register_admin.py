@@ -187,3 +187,40 @@ def delete_user_from_keycloak(keycloak_id: str):
     
     except requests.exceptions.RequestException as e:
         raise Exception(f"Error en la solicitud a Keycloak: {str(e)}")
+
+
+def update_user_in_keycloak(keycloak_id: str, username: str):
+    """
+    Actualiza datos básicos de un usuario en Keycloak.
+
+    Args:
+        keycloak_id: UUID del usuario en Keycloak
+        username: nuevo username
+
+    Lanza: Exception si algo falla
+    """
+    keycloak_url = os.getenv("KEYCLOAK_URL")
+    realm = os.getenv("KEYCLOAK_REALM")
+
+    if not keycloak_url or not realm:
+        raise Exception("Faltan KEYCLOAK_URL y KEYCLOAK_REALM")
+
+    admin_token = get_admin_token()
+
+    update_url = f"{keycloak_url}/admin/realms/{realm}/users/{keycloak_id}"
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json",
+    }
+    user_data = {
+        "username": username,
+        "firstName": username,
+        "lastName": username,
+    }
+
+    try:
+        response = requests.put(update_url, json=user_data, headers=headers, timeout=10)
+        if response.status_code not in [200, 204]:
+            raise Exception(f"No se pudo actualizar usuario en Keycloak: {response.text}")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error en la solicitud a Keycloak: {str(e)}")

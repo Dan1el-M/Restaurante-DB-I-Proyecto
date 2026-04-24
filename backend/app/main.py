@@ -79,6 +79,7 @@ app.include_router(client_routes)
 # Rutas que requieren rol 'admin'
 admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
 
+client_routes.include_router(users.router)
 
 app.include_router(admin_routes)
 
