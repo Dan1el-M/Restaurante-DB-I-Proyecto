@@ -87,6 +87,7 @@ def get_or_create_keycloak_user(token):
         headers=headers,
         params={"username": ADMIN_USERNAME},
         timeout=10,
+        #que el temporary sea false para que no pida cambiar la contraseña al primer login
     )
     search_response.raise_for_status()
 
@@ -98,6 +99,8 @@ def get_or_create_keycloak_user(token):
 
     payload = {
         "username": ADMIN_USERNAME,
+        "firstName": "Admin",
+        "lastName": "User",
         "email": ADMIN_EMAIL,
         "enabled": True,
         "emailVerified": True,
