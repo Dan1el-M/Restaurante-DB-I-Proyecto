@@ -84,6 +84,7 @@ app.include_router(restaurants.router)
 admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
 # POST, PUT, DELETE para admin
 admin_routes.include_router(restaurants.router)
+client_routes.include_router(users.router)
 
 app.include_router(admin_routes)
 
