@@ -70,7 +70,7 @@ app.include_router(auth.router)
 # ========== ROUTERS PROTEGIDOS / FUNCIONALES ==========
 
 # Usuarios: cualquier endpoint de /users requiere token válido
-app.include_router(users.router, dependencies=[Depends(get_current_user)])
+app.include_router(users.router)
 
 # Restaurantes: todos los endpoints requieren token (cliente mínimo)
 # - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
