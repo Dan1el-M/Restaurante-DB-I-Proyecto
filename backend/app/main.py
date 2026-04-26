@@ -72,14 +72,13 @@ app.include_router(auth.router)
 # Usuarios: cualquier endpoint de /users requiere token válido
 app.include_router(users.router, dependencies=[Depends(get_current_user)])
 
-# Restaurantes:
-# - GET /restaurants y GET /restaurants/{id} públicos
-# - POST, PUT, DELETE protegidos como admin dentro de restaurants.py
-app.include_router(restaurants.router)
+# Restaurantes: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
+app.include_router(restaurants.router, dependencies=[Depends(get_current_user)])
 
-# Menús:
-# Los permisos específicos se manejan dentro de menus.py
-app.include_router(menus.router)
+# Menús: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de menus.py
+app.include_router(menus.router, dependencies=[Depends(get_current_user)])
 
 # Reservaciones:
 # Los permisos específicos se manejan dentro de reservations.py
