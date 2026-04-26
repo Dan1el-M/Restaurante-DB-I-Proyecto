@@ -13,7 +13,10 @@ from backend.models.roles import Role
 from backend.schemas.auth import RegisterRequest, RegisterResponse, LoginRequest
 from backend.app.autentificador.keycloak_register_admin import create_user_in_keycloak
 #from backend.app.autentificador.keycloak_register_client import login as keycloak_login
-from backend.app.autentificador.keycloak_login import login as keycloak_login
+from backend.app.autentificador.keycloak_login import (
+    KeycloakLoginError,
+    login as keycloak_login,
+)
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -141,5 +144,21 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(payload: LoginRequest):
-    token_response = keycloak_login(payload.username, payload.password)
-    return token_response
+    try:
+        token_response = keycloak_login(payload.username, payload.password)
+        return token_response
+    except KeycloakLoginError as exc:
+        status_code = status.HTTP_401_UNAUTHORIZED
+        detail = str(exc)
+
+        if exc.keycloak_error and "resolve_required_actions" in exc.keycloak_error:
+            status_code = status.HTTP_403_FORBIDDEN
+            detail = (
+                "No se puede iniciar sesión por acciones requeridas pendientes "
+                "en Keycloak para este usuario."
+            )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail,
+        ) from exc

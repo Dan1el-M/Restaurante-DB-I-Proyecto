@@ -93,17 +93,16 @@ def get_or_create_keycloak_user(token):
 
     users = search_response.json()
 
-    if users:
-        print("Usuario admin ya existe en Keycloak.")
-        return users[0]["id"]
-
-    payload = {
+    user_payload = {
         "username": ADMIN_USERNAME,
         "firstName": "Admin",
         "lastName": "User",
         "email": ADMIN_EMAIL,
         "enabled": True,
         "emailVerified": True,
+        "firstName": ADMIN_USERNAME,
+        "lastName": ADMIN_USERNAME,
+        "requiredActions": [],
         "credentials": [
             {
                 "type": "password",
@@ -113,10 +112,31 @@ def get_or_create_keycloak_user(token):
         ],
     }
 
+    if users:
+        existing_user = users[0]
+        user_id = existing_user.get("id")
+        if not user_id:
+            raise Exception("Usuario existente en Keycloak sin id válido")
+
+        # Reconciliar estado del usuario para evitar errores de login por
+        # acciones requeridas pendientes (ej. UPDATE_PROFILE).
+        update_url = f"{users_url}/{user_id}"
+
+        update_response = requests.put(
+            update_url,
+            headers=headers,
+            json=user_payload,
+            timeout=10,
+        )
+        update_response.raise_for_status()
+
+        print("Usuario admin ya existe en Keycloak (actualizado).")
+        return user_id
+
     create_response = requests.post(
         users_url,
         headers=headers,
-        json=payload,
+        json=user_payload,
         timeout=10,
     )
     create_response.raise_for_status()

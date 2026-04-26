@@ -20,7 +20,7 @@ load_dotenv()
 from .autentificador.keycloak_dependencies import get_current_user
 
 # Importar routers
-from backend.app.routers import auth, restaurants, reservations, menus, users
+from backend.app.routers import auth, restaurants, reservations, menus, orders, users, tables
 
 # ========== CREAR APLICACIÓN ==========
 
@@ -74,15 +74,23 @@ app.include_router(users.router)
 
 # Restaurantes: todos los endpoints requieren token (cliente mínimo)
 # - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
-app.include_router(restaurants.router, dependencies=[Depends(get_current_user)])
+app.include_router(restaurants.router)
 
 # Menús: todos los endpoints requieren token (cliente mínimo)
 # - POST, PUT, DELETE requieren rol admin dentro de menus.py
-app.include_router(menus.router, dependencies=[Depends(get_current_user)])
+app.include_router(menus.router)
 
-# Reservaciones:
-# Los permisos específicos se manejan dentro de reservations.py
+# Reservaciones: todos los endpoints requieren token válido (cliente mínimo)
+# - No hay restricción de rol, solo requiere estar autenticado
 app.include_router(reservations.router)
+
+# Pedidos: todos los endpoints requieren token válido (cliente mínimo)
+# - No hay restricción de rol, solo requiere estar autenticado
+app.include_router(orders.router)
+
+# Mesas: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de tables.py
+app.include_router(tables.router)
 
 
 # ========== PUERTO ==========
