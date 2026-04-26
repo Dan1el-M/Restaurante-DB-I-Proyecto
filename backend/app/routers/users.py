@@ -10,16 +10,11 @@ from backend.app.autentificador.keycloak_register_admin import (
     update_user_in_keycloak,
 )
 from backend.database import get_db
+from backend.utils.auth import has_admin_role
 from backend.models.users import User
 from backend.schemas.user import UserResponse, UserUpdate
 
-
 router = APIRouter(prefix="/users", tags=["Usuarios"])
-
-def _has_admin_role(payload: dict) -> bool:
-    client_id = "restaurant-client"
-    roles = payload.get("resource_access", {}).get(client_id, {}).get("roles", [])
-    return "admin" in roles
 
 @router.get("/me", response_model=UserResponse)
 def get_me(
@@ -71,7 +66,7 @@ def update_me(
         )
 
     # Solo admin o dueño del recurso puede actualizar
-    if user.keycloak_id != keycloak_sub and not _has_admin_role(payload):
+    if user.keycloak_id != keycloak_sub and not has_admin_role(payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para actualizar este usuario",
@@ -136,7 +131,7 @@ def delete_me(
         )
 
     # Solo admin o dueño del recurso puede eliminar
-    if user.keycloak_id != keycloak_sub and not _has_admin_role(payload):
+    if user.keycloak_id != keycloak_sub and not has_admin_role(payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para eliminar este usuario",
