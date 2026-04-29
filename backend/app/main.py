@@ -4,11 +4,12 @@ Servidor API para gestión de restaurantes con Keycloak
 Estructura:
 - Rutas públicas (ping, health)
 - Rutas de autenticación (registro, login)
-- Rutas protegidas por rol (client, admin)
+- Rutas protegidas por rol dentro de cada router
 """
 
 import os
-from fastapi import Depends, FastAPI, APIRouter
+import uvicorn
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -16,10 +17,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Importar middleware de autorización
-from .autentificador.keycloak_dependencies import get_current_user, require_role
+from .autentificador.keycloak_dependencies import get_current_user
 
 # Importar routers
-from .routers import restaurants
+from backend.app.routers import auth, restaurants, reservations, menus, orders, users, tables
 
 # ========== CREAR APLICACIÓN ==========
 
@@ -40,57 +41,63 @@ app.add_middleware(
 
 # ========== RUTAS PÚBLICAS ==========
 
+# Estas podemos eliminarlas después; solo las dejo para pruebas de conexión
+
 @app.get("/ping")
 def ping():
     """Health check básico"""
     return {"message": "pong"}
+
 
 @app.get("/")
 def root():
     """Ruta raíz"""
     return {"message": "API funcionando", "version": "1.0.0"}
 
+
 @app.get("/health")
 def health_check():
     """Health check para monitoreo"""
     return {"status": "ok"}
 
+
 # ========== RUTAS DE AUTENTICACIÓN ==========
 
-@app.post("/auth/register")
-def register():
-    """Registro de usuarios"""
-    # TODO: Implementar registro
-    pass
-
-@app.post("/auth/login")
-def login():
-    """Login de usuarios"""
-    # TODO: Implementar login
-    pass
-
-# ========== ROUTERS PROTEGIDOS POR ROL ==========
-
-# --------- CLIENT ROUTES ---------
-# Rutas que requieren rol 'client'
-client_routes = APIRouter(dependencies=[Depends(require_role("client"))])
-
-client_routes.include_router(restaurants.router, tags=["Client - Restaurants"])
-
-app.include_router(client_routes)
-
-# --------- ADMIN ROUTES ---------
-# Rutas que requieren rol 'admin'
-admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
+# Rutas públicas de autenticación: /auth/register y /auth/login
+app.include_router(auth.router)
 
 
-app.include_router(admin_routes)
+# ========== ROUTERS PROTEGIDOS / FUNCIONALES ==========
+
+# Usuarios: cualquier endpoint de /users requiere token válido
+app.include_router(users.router)
+
+# Restaurantes: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
+app.include_router(restaurants.router)
+
+# Menús: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de menus.py
+app.include_router(menus.router)
+
+# Reservaciones: todos los endpoints requieren token válido (cliente mínimo)
+# - No hay restricción de rol, solo requiere estar autenticado
+app.include_router(reservations.router)
+
+# Pedidos: todos los endpoints requieren token válido (cliente mínimo)
+# - No hay restricción de rol, solo requiere estar autenticado
+app.include_router(orders.router)
+
+# Mesas: todos los endpoints requieren token (cliente mínimo)
+# - POST, PUT, DELETE requieren rol admin dentro de tables.py
+app.include_router(tables.router)
+
 
 # ========== PUERTO ==========
 
 if __name__ == "__main__":
-    import uvicorn
     
+    # Puerto y host configurables por variables de entorno
     port = int(os.getenv("BACKEND_PORT", 8000))
     host = os.getenv("BACKEND_HOST", "0.0.0.0")
     
