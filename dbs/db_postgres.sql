@@ -5,10 +5,12 @@ CREATE TABLE Roles (
 );
 
 CREATE TABLE Users (
-    user_id         SERIAL       PRIMARY KEY,
-    user_name       VARCHAR(64)  NOT NULL,
-    role_id         INT          NOT NULL,
-    keycloak_id     VARCHAR(255) NOT NULL UNIQUE,
+    user_id         SERIAL      PRIMARY KEY,
+    user_name       VARCHAR(64) NOT NULL,
+    role_id         INT         NOT NULL,
+    email           VARCHAR(128) NOT NULL,
+    password_hash   VARCHAR(256) NOT NULL, 
+    /*deberiamos de guardar la contras y el correo y al contra como hash?*/
 
     CONSTRAINT FK_Users_Roles FOREIGN KEY (role_id) REFERENCES Roles(role_id)
 );
