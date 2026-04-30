@@ -2,6 +2,6 @@
 Routers de la API de restaurantes
 """
 
-from . import auth, restaurants, menus, reservations, orders, users, tables
+from . import auth, menus, orders, reservations, restaurants, search, tables, users
 
-__all__ = ["auth", "restaurants", "menus", "reservations", "orders", "users", "tables"]
+__all__ = ["auth", "menus", "orders", "reservations", "restaurants", "search", "tables", "users"]
