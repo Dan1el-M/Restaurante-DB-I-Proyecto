@@ -1,4 +1,4 @@
-db = db.getSiblingDB("restaurantes_db");
+db = db.getSiblingDB("restaurant_mongo_db");
 
 [
   "roles",
