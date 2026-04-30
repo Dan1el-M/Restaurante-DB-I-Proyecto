@@ -1,12 +1,11 @@
 """Router de restaurantes."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.orm import Session
 
 from backend.app.autentificador.keycloak_dependencies import get_current_user
+from backend.dao import BaseDAO
 from backend.utils.auth import has_admin_role
-from backend.database import get_db
-from backend.models.restaurants import Restaurant
+from backend.database import get_dao
 from backend.schemas.restaurant import RestaurantCreate, RestaurantResponse, RestaurantUpdate
 
 router = APIRouter(prefix="/restaurants", tags=["Restaurantes"])
@@ -14,16 +13,16 @@ router = APIRouter(prefix="/restaurants", tags=["Restaurantes"])
 
 @router.get("/", response_model=list[RestaurantResponse])
 def list_restaurants(token_payload=Depends(get_current_user),
-                     db: Session = Depends(get_db)):
+                     dao: BaseDAO = Depends(get_dao)):
     """Lista todos los restaurantes."""
-    return db.query(Restaurant).all()
+    return dao.list_restaurants()
 
 
 @router.get("/{restaurant_id}", response_model=RestaurantResponse)
 def get_restaurant(restaurant_id: int, token_payload=Depends(get_current_user),
-                   db: Session = Depends(get_db)):
+                   dao: BaseDAO = Depends(get_dao)):
     """Obtiene un restaurante por su ID."""
-    restaurant = db.query(Restaurant).filter(Restaurant.restaurant_id == restaurant_id).first()
+    restaurant = dao.get_restaurant(restaurant_id)
     if not restaurant:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -40,7 +39,7 @@ def get_restaurant(restaurant_id: int, token_payload=Depends(get_current_user),
 def create_restaurant(
     payload: RestaurantCreate,
     token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """Crea un restaurante."""
     if not has_admin_role(token_payload):
@@ -48,12 +47,14 @@ def create_restaurant(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo administradores pueden crear restaurantes",
         )
+
+    if not dao.get_user(payload.admin_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El administrador no existe",
+        )
     
-    restaurant = Restaurant(**payload.model_dump())
-    db.add(restaurant)
-    db.commit()
-    db.refresh(restaurant)
-    return restaurant
+    return dao.create_restaurant(payload.model_dump())
 
 
 @router.put(
@@ -64,7 +65,7 @@ def update_restaurant(
     restaurant_id: int,
     payload: RestaurantUpdate,
     token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """Actualiza parcialmente un restaurante existente."""
     if not has_admin_role(token_payload):
@@ -73,13 +74,6 @@ def update_restaurant(
             detail="Solo administradores pueden actualizar restaurantes",
         )
     
-    restaurant = db.query(Restaurant).filter(Restaurant.restaurant_id == restaurant_id).first()
-    if not restaurant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Restaurante no encontrado",
-        )
-
     data = payload.model_dump(exclude_unset=True)
     if not data:
         raise HTTPException(
@@ -87,11 +81,18 @@ def update_restaurant(
             detail="No se enviaron campos para actualizar",
         )
 
-    for field, value in data.items():
-        setattr(restaurant, field, value)
+    if "admin_id" in data and not dao.get_user(data["admin_id"]):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El administrador no existe",
+        )
 
-    db.commit()
-    db.refresh(restaurant)
+    restaurant = dao.update_restaurant(restaurant_id, data)
+    if not restaurant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Restaurante no encontrado",
+        )
     return restaurant
 
 
@@ -102,7 +103,7 @@ def update_restaurant(
 def delete_restaurant(
     restaurant_id: int,
     token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """Elimina un restaurante por su ID."""
     if not has_admin_role(token_payload):
@@ -111,13 +112,9 @@ def delete_restaurant(
             detail="Solo administradores pueden eliminar restaurantes",
         )
     
-    restaurant = db.query(Restaurant).filter(Restaurant.restaurant_id == restaurant_id).first()
-    if not restaurant:
+    if not dao.delete_restaurant(restaurant_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Restaurante no encontrado",
         )
-
-    db.delete(restaurant)
-    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

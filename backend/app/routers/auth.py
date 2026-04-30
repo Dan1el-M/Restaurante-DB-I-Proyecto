@@ -5,11 +5,9 @@ Router de autenticación: registro y login
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
-from backend.database import get_db
-from backend.models.users import User
-from backend.models.roles import Role
+from backend.dao import BaseDAO, field_value
+from backend.database import get_dao
 from backend.schemas.auth import RegisterRequest, RegisterResponse, LoginRequest
 from backend.app.autentificador.keycloak_register_admin import create_user_in_keycloak
 #from backend.app.autentificador.keycloak_register_client import login as keycloak_login
@@ -36,7 +34,7 @@ def _missing_keycloak_env_vars():
 # ========== POST /auth/register ==========
 
 @router.post("/register", status_code=201, response_model=RegisterResponse)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+def register(payload: RegisterRequest, dao: BaseDAO = Depends(get_dao)):
     username = payload.username
     email = payload.email
     password = payload.password
@@ -70,7 +68,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         )
     
     # Validar que el usuario no exista en la BD
-    existing_user = db.query(User).filter(User.user_name == username).first()
+    existing_user = dao.get_user_by_username(username)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -99,26 +97,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     # ========== PASO 2: CREAR EN LA BD ==========
     
     try:
-        role = db.query(Role).filter(Role.role_name == "client").first()
+        role = dao.get_role_by_name("client")
         if not role:
             raise HTTPException(
                 status_code=500,
                 detail="Rol 'client' no existe en la base de datos"
             )
-        new_user = User(
-            user_name=username,
-            keycloak_id=keycloak_id,
-            role_id=role.role_id
+        new_user = dao.create_user(
+            {
+                "user_name": username,
+                "keycloak_id": keycloak_id,
+                "role_id": field_value(role, "role_id"),
+            }
         )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
     except HTTPException:
-        db.rollback()
         raise
 
     except Exception as e:
-        db.rollback()
         # Si falla en la BD, intentar eliminar el usuario de Keycloak
         from backend.app.autentificador.keycloak_register_admin import delete_user_from_keycloak
         try:
@@ -135,8 +130,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     
     return {
         "message": "Usuario creado correctamente",
-        "user_id": new_user.user_id,
-        "username": new_user.user_name
+        "user_id": field_value(new_user, "user_id"),
+        "username": field_value(new_user, "user_name")
     }
 
 
