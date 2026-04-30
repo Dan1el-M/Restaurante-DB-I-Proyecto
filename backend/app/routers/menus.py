@@ -37,7 +37,7 @@ def list_menus(token_payload=Depends(get_current_user), dao: BaseDAO = Depends(g
 def get_menu(menu_id: int, token_payload=Depends(get_current_user), dao: BaseDAO = Depends(get_dao)):
     """Obtiene un menu por su ID."""
 
-    cache_key = "menus:all"
+    cache_key = f"menus:{menu_id}"
 
     cached_data = get_cache(cache_key)
     if cached_data:
@@ -128,6 +128,7 @@ def update_menu(
         )
     
     delete_cache("menus:all")
+    delete_cache(f"menus:{menu_id}")
 
     return menu
 
@@ -152,5 +153,7 @@ def delete_menu(
         )
     
     delete_cache("menus:all") # Borra el cache porque ya no tiene la misma información
+
+    delete_cache(f"menus:{menu_id}")
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
