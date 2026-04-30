@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import psycopg2
+from pymongo import MongoClient, ReturnDocument
 from psycopg2 import OperationalError
 
 
@@ -19,9 +20,12 @@ DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("POSTGRES_DB", "restaurant_db")
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "postgres").split("#", 1)[0].strip().lower()
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin123@mongo:27017/restaurantes_db?authSource=admin")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "restaurantes_db")
 
 
-def wait_for_keycloak(max_retries=30, delay=3):
+def wait_for_keycloak(max_retries=30, delay=4):
     url = f"{KEYCLOAK_URL}/realms/master"
 
     for attempt in range(1, max_retries + 1):
@@ -57,6 +61,23 @@ def wait_for_postgres(max_retries=30, delay=3):
             time.sleep(delay)
 
     raise Exception("PostgreSQL no estuvo listo a tiempo")
+
+
+def wait_for_mongo(max_retries=30, delay=3):
+    client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            client.admin.command("ping")
+            print("MongoDB listo.")
+            client.close()
+            return
+        except Exception:
+            print(f"Esperando MongoDB... intento {attempt}")
+            time.sleep(delay)
+
+    client.close()
+    raise Exception("MongoDB no estuvo listo a tiempo")
 
 
 def get_admin_token():
@@ -180,6 +201,39 @@ def insert_admin_in_postgres(keycloak_id):
     finally:
         conn.close()
 
+
+def insert_admin_in_mongo(keycloak_id):
+    client = MongoClient(MONGO_URL)
+    db = client[MONGO_DB_NAME]
+
+    try:
+        role = db.roles.find_one({"role_name": "admin"})
+        if not role:
+            role = {"role_id": 1, "role_name": "admin"}
+            db.roles.update_one({"role_id": 1}, {"$setOnInsert": role}, upsert=True)
+
+        existing_user = db.users.find_one({"keycloak_id": keycloak_id})
+        if not existing_user:
+            counter = db.counters.find_one_and_update(
+                {"_id": "users"},
+                {"$inc": {"seq": 1}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            db.users.insert_one(
+                {
+                    "user_id": counter["seq"],
+                    "user_name": ADMIN_USERNAME,
+                    "keycloak_id": keycloak_id,
+                    "role_id": role["role_id"],
+                }
+            )
+
+        print("Usuario admin insertado o ya existente en MongoDB.")
+
+    finally:
+        client.close()
+
 def get_or_create_realm_role(token, role_name):
     headers = {
         "Authorization": f"Bearer {token}",
@@ -248,7 +302,10 @@ def assign_realm_role_to_user(token, user_id, role):
 
 def main():
     wait_for_keycloak()
-    wait_for_postgres()
+    if DATABASE_ENGINE == "mongo":
+        wait_for_mongo()
+    else:
+        wait_for_postgres()
 
     token = get_admin_token()
 
@@ -259,7 +316,10 @@ def main():
 
     assign_realm_role_to_user(token, keycloak_id, admin_role)
 
-    insert_admin_in_postgres(keycloak_id)
+    if DATABASE_ENGINE == "mongo":
+        insert_admin_in_mongo(keycloak_id)
+    else:
+        insert_admin_in_postgres(keycloak_id)
 
     print("Seed admin completado correctamente.")
 

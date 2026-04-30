@@ -1,93 +1,71 @@
-"""Router de menús."""
+"""Router de menus."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from backend.app.autentificador.keycloak_dependencies import get_current_user
-from backend.utils.auth import has_admin_role
-from backend.database import get_db
-from backend.models.menus import Menu
+from backend.dao import BaseDAO, DAOConflictError
+from backend.database import get_dao
 from backend.schemas.menu import MenuCreate, MenuResponse, MenuUpdate
+from backend.utils.auth import has_admin_role
 
-router = APIRouter(prefix="/menus", tags=["Menús"])
+router = APIRouter(prefix="/menus", tags=["Menus"])
 
 
 @router.get("/", response_model=list[MenuResponse])
-def list_menus(token_payload=Depends(get_current_user),
-               db: Session = Depends(get_db)):
-    """Lista todos los menús."""
-    return db.query(Menu).all()
+def list_menus(token_payload=Depends(get_current_user), dao: BaseDAO = Depends(get_dao)):
+    """Lista todos los menus."""
+    return dao.list_menus()
 
 
 @router.get("/{menu_id}", response_model=MenuResponse)
-def get_menu(menu_id: int, token_payload=Depends(get_current_user),
-             db: Session = Depends(get_db)):
-    """Obtiene un menú por su ID."""
-    menu = db.query(Menu).filter(Menu.menu_id == menu_id).first()
+def get_menu(menu_id: int, token_payload=Depends(get_current_user), dao: BaseDAO = Depends(get_dao)):
+    """Obtiene un menu por su ID."""
+    menu = dao.get_menu(menu_id)
     if not menu:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Menú no encontrado",
+            detail="Menu no encontrado",
         )
     return menu
 
 
-@router.post(
-    "/",
-    response_model=MenuResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/", response_model=MenuResponse, status_code=status.HTTP_201_CREATED)
 def create_menu(
     payload: MenuCreate,
     token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
-    """Crea un nuevo menú."""
+    """Crea un nuevo menu."""
     if not has_admin_role(token_payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo administradores pueden crear menús",
+            detail="Solo administradores pueden crear menus",
         )
-    
-    menu = Menu(**payload.model_dump())
-    db.add(menu)
+
+    if not dao.get_restaurant(payload.restaurant_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El restaurante no existe")
 
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
+        return dao.create_menu(payload.model_dump())
+    except DAOConflictError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ya existe un plato con ese nombre en este restaurante",
         )
 
-    db.refresh(menu)
-    return menu
 
-
-@router.put(
-    "/{menu_id}",
-    response_model=MenuResponse,
-)
+@router.put("/{menu_id}", response_model=MenuResponse)
 def update_menu(
     menu_id: int,
     payload: MenuUpdate,
     token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
-    """Actualiza parcialmente un menú existente."""
+    """Actualiza parcialmente un menu existente."""
     if not has_admin_role(token_payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo administradores pueden actualizar menús",
-        )
-    
-    menu = db.query(Menu).filter(Menu.menu_id == menu_id).first()
-    if not menu:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Menú no encontrado",
+            detail="Solo administradores pueden actualizar menus",
         )
 
     data = payload.model_dump(exclude_unset=True)
@@ -97,45 +75,41 @@ def update_menu(
             detail="No se enviaron campos para actualizar",
         )
 
-    for field, value in data.items():
-        setattr(menu, field, value)
+    if "restaurant_id" in data and not dao.get_restaurant(data["restaurant_id"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El restaurante no existe")
 
     try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
+        menu = dao.update_menu(menu_id, data)
+    except DAOConflictError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Ya existe un plato con ese nombre en este restaurante",
         )
 
-    db.refresh(menu)
-    return menu
-
-
-@router.delete(
-    "/{menu_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_menu(
-    menu_id: int,
-    token_payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Elimina un menú por su ID."""
-    if not has_admin_role(token_payload):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo administradores pueden eliminar menús",
-        )
-    
-    menu = db.query(Menu).filter(Menu.menu_id == menu_id).first()
     if not menu:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Menú no encontrado",
+            detail="Menu no encontrado",
+        )
+    return menu
+
+
+@router.delete("/{menu_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_menu(
+    menu_id: int,
+    token_payload=Depends(get_current_user),
+    dao: BaseDAO = Depends(get_dao),
+):
+    """Elimina un menu."""
+    if not has_admin_role(token_payload):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo administradores pueden eliminar menus",
         )
 
-    db.delete(menu)
-    db.commit()
+    if not dao.delete_menu(menu_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Menu no encontrado",
+        )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

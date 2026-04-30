@@ -1,18 +1,16 @@
 """
 Router de usuarios autenticados
 """
-import os
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from backend.app.autentificador.keycloak_dependencies import get_current_user
 from backend.app.autentificador.keycloak_register_admin import (
     delete_user_from_keycloak,
     update_user_in_keycloak,
 )
-from backend.database import get_db
+from backend.dao import BaseDAO, field_value
+from backend.database import get_dao
 from backend.utils.auth import has_admin_role
-from backend.models.users import User
 from backend.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
@@ -20,7 +18,7 @@ router = APIRouter(prefix="/users", tags=["Usuarios"])
 @router.get("/me", response_model=UserResponse)
 def get_me(
     payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """
     Devuelve el usuario autenticado según el `sub` del token de Keycloak.
@@ -32,7 +30,7 @@ def get_me(
             detail="Token sin claim 'sub'",
         )
 
-    user = db.query(User).filter(User.keycloak_id == keycloak_sub).first()
+    user = dao.get_user_by_keycloak_id(keycloak_sub)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,7 +45,7 @@ def update_me(
     user_id: int,
     data: UserUpdate,
     payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """
     Actualiza el perfil del usuario autenticado.
@@ -59,7 +57,7 @@ def update_me(
             detail="Token sin claim 'sub'",
         )
 
-    user = db.query(User).filter(User.user_id == user_id).first()
+    user = dao.get_user(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -67,44 +65,39 @@ def update_me(
         )
 
     # Solo admin o dueño del recurso puede actualizar
-    if user.keycloak_id != keycloak_sub and not has_admin_role(payload):
+    if field_value(user, "keycloak_id") != keycloak_sub and not has_admin_role(payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para actualizar este usuario",
         )
 
     # No permitir escalar privilegios desde este endpoint
-    if data.role_id is not None and data.role_id != user.role_id:
+    if data.role_id is not None and data.role_id != field_value(user, "role_id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No puedes cambiar tu rol desde este endpoint",
         )
 
     if data.user_name is not None:
-        existing_user = (
-            db.query(User)
-            .filter(User.user_name == data.user_name, User.user_id != user.user_id)
-            .first()
-        )
-        if existing_user:
+        existing_user = dao.get_user_by_username(data.user_name)
+        if existing_user and field_value(existing_user, "user_id") != field_value(user, "user_id"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El nombre de usuario ya está en uso",
             )
 
-        if user.keycloak_id:
+        keycloak_id = field_value(user, "keycloak_id")
+        if keycloak_id:
             try:
-                update_user_in_keycloak(user.keycloak_id, data.user_name)
+                update_user_in_keycloak(keycloak_id, data.user_name)
             except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=f"No se pudo actualizar el usuario en Keycloak: {str(exc)}",
                 )
 
-        user.user_name = data.user_name
+        user = dao.update_user(user_id, {"user_name": data.user_name})
 
-    db.commit()
-    db.refresh(user)
     return user
 
 
@@ -112,7 +105,7 @@ def update_me(
 def delete_me(
     user_id: int,
     payload=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    dao: BaseDAO = Depends(get_dao),
 ):
     """
     Elimina la cuenta del usuario autenticado en Keycloak y en la BD local.
@@ -124,7 +117,7 @@ def delete_me(
             detail="Token sin claim 'sub'",
         )
 
-    user = db.query(User).filter(User.user_id == user_id).first()
+    user = dao.get_user(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,21 +125,21 @@ def delete_me(
         )
 
     # Solo admin o dueño del recurso puede eliminar
-    if user.keycloak_id != keycloak_sub and not has_admin_role(payload):
+    if field_value(user, "keycloak_id") != keycloak_sub and not has_admin_role(payload):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos para eliminar este usuario",
         )
 
-    if user.keycloak_id:
+    keycloak_id = field_value(user, "keycloak_id")
+    if keycloak_id:
         try:
-            delete_user_from_keycloak(user.keycloak_id)
+            delete_user_from_keycloak(keycloak_id)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"No se pudo eliminar el usuario en Keycloak: {str(exc)}",
             )
 
-    db.delete(user)
-    db.commit()
+    dao.delete_user(user_id)
     return None
