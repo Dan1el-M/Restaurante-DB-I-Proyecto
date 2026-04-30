@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from backend.app.autentificador.keycloak_dependencies import get_current_user
-from backend.app.cache.cache_service import get_cache, set_cache, delete_cache
+from backend.app.cache.cache_service import get_cache, set_cache, delete_cache, delete_cache_pattern
 from backend.dao import BaseDAO, DAOConflictError
 from backend.database import get_dao
 from backend.schemas.menu import MenuCreate, MenuResponse, MenuUpdate
@@ -41,10 +41,10 @@ def get_menu(menu_id: int, token_payload=Depends(get_current_user), dao: BaseDAO
 
     cached_data = get_cache(cache_key)
     if cached_data:
-        print("CACHE HIT")
+        print("PRODUCT CACHE HIT")
         return cached_data
     
-    print("CACHE MISS")
+    print("PRODUCT CACHE MISS")
     
     menu = dao.get_menu(menu_id)
     if not menu:
@@ -79,6 +79,7 @@ def create_menu(
 
         # Limpiar cache porque cambió la lista de menus
         delete_cache("menus:all")
+        delete_cache_pattern("search:products:*")
 
         return menu
     except DAOConflictError:
@@ -128,6 +129,8 @@ def update_menu(
         )
     
     delete_cache("menus:all")
+    delete_cache(f"menus:{menu_id}")
+    delete_cache_pattern("search:products:*")
 
     return menu
 
@@ -152,5 +155,8 @@ def delete_menu(
         )
     
     delete_cache("menus:all") # Borra el cache porque ya no tiene la misma información
+
+    delete_cache(f"menus:{menu_id}")
+    delete_cache_pattern("search:products:*")
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

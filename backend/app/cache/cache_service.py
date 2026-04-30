@@ -24,3 +24,9 @@ def set_cache(key: str, value, ttl: int = CACHE_TTL_SECONDS):
 
 def delete_cache(key: str):
     redis_client.delete(key)
+
+
+def delete_cache_pattern(pattern: str):
+    keys = list(redis_client.scan_iter(match=pattern))
+    if keys:
+        redis_client.delete(*keys)
