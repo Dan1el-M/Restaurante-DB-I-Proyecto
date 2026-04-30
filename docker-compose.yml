@@ -70,11 +70,21 @@ services:
     networks:
       - restaurant-network
     restart: "no"
+  redis:
+    image: redis:7.2
+    container_name: restaurant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - restaurant-network
 
 # Volumenes para persistir datos
 volumes:
   postgres_data:
   mongo_data:
+  redis_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:
