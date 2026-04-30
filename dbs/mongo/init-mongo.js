@@ -29,6 +29,7 @@ db.restaurants.createIndex({ admin_id: 1 });
 
 db.menus.createIndex({ menu_id: 1 }, { unique: true });
 db.menus.createIndex({ restaurant_id: 1, dish_name: 1 }, { unique: true });
+db.menus.createIndex({ category: 1 });
 
 db.tables.createIndex({ table_id: 1 }, { unique: true });
 db.tables.createIndex({ restaurant_id: 1, table_number: 1 }, { unique: true });

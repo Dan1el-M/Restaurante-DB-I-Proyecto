@@ -20,7 +20,7 @@ load_dotenv()
 from .autentificador.keycloak_dependencies import get_current_user
 
 # Importar routers
-from backend.app.routers import auth, restaurants, reservations, menus, orders, users, tables
+from backend.app.routers import auth, menus, orders, reservations, restaurants, search, tables, users
 
 # ========== CREAR APLICACIÓN ==========
 
@@ -92,6 +92,11 @@ app.include_router(orders.router)
 # - POST, PUT, DELETE requieren rol admin dentro de tables.py
 app.include_router(tables.router)
 
+# busqueda: todos los endpoints requieren token (cliente mínimo)
+# GET /search/products?q=texto — Busqueda textual en productos.
+# GET /search/products/category/:categoria — Filtrar por categoria.
+# POST /search/reindex — Reindexar productos manualmente.
+app.include_router(search.router)
 
 # ========== PUERTO ==========
 

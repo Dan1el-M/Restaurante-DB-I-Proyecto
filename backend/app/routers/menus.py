@@ -37,7 +37,7 @@ def list_menus(token_payload=Depends(get_current_user), dao: BaseDAO = Depends(g
 def get_menu(menu_id: int, token_payload=Depends(get_current_user), dao: BaseDAO = Depends(get_dao)):
     """Obtiene un menu por su ID."""
 
-    cache_key = "menus:all"
+    cache_key = f"menus:{menu_id}"
 
     cached_data = get_cache(cache_key)
     if cached_data:
