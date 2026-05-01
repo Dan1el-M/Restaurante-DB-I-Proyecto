@@ -9,25 +9,30 @@ Estructura:
 
 import os
 import uvicorn
-from fastapi import Depends, FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Importar middleware de autorización
-from .autentificador.keycloak_dependencies import get_current_user
-
 # Importar routers
 from backend.app.routers import auth, menus, orders, reservations, restaurants, search, tables, users
 
 # ========== CREAR APLICACIÓN ==========
 
+API_PREFIX = "/api"
+SEARCH_PREFIX = "/search"
+SERVICE_MODE = os.getenv("SERVICE_MODE", "all").lower()
+DOCS_PREFIX = SEARCH_PREFIX if SERVICE_MODE == "search" else API_PREFIX
+
 app = FastAPI(
     title="Restaurante API",
     description="API para gestión de restaurantes, reservaciones y menús",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=f"{DOCS_PREFIX}/docs",
+    redoc_url=f"{DOCS_PREFIX}/redoc",
+    openapi_url=f"{DOCS_PREFIX}/openapi.json",
 )
 
 # Configurar CORS
@@ -43,60 +48,54 @@ app.add_middleware(
 
 # Estas podemos eliminarlas después; solo las dejo para pruebas de conexión
 
-@app.get("/ping")
+api_public_router = APIRouter(prefix=API_PREFIX, tags=["Sistema"])
+
+@api_public_router.get("/ping")
 def ping():
     """Health check básico"""
     return {"message": "pong"}
 
 
-@app.get("/")
-def root():
-    """Ruta raíz"""
-    return {"message": "API funcionando", "version": "1.0.0"}
+if SERVICE_MODE in ("api", "all"):
+    app.include_router(api_public_router)
+
+    # ========== RUTAS DE AUTENTICACIÓN ==========
+
+    # Rutas públicas de autenticación: /api/auth/register y /api/auth/login
+    app.include_router(auth.router, prefix=API_PREFIX)
 
 
-@app.get("/health")
-def health_check():
-    """Health check para monitoreo"""
-    return {"status": "ok"}
+    # ========== ROUTERS PROTEGIDOS / FUNCIONALES ==========
 
+    # Usuarios: cualquier endpoint de /api/users requiere token válido
+    app.include_router(users.router, prefix=API_PREFIX)
 
-# ========== RUTAS DE AUTENTICACIÓN ==========
+    # Restaurantes: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
+    app.include_router(restaurants.router, prefix=API_PREFIX)
 
-# Rutas públicas de autenticación: /auth/register y /auth/login
-app.include_router(auth.router)
+    # Menús: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de menus.py
+    app.include_router(menus.router, prefix=API_PREFIX)
 
+    # Reservaciones: todos los endpoints requieren token válido (cliente mínimo)
+    # - No hay restricción de rol, solo requiere estar autenticado
+    app.include_router(reservations.router, prefix=API_PREFIX)
 
-# ========== ROUTERS PROTEGIDOS / FUNCIONALES ==========
+    # Pedidos: todos los endpoints requieren token válido (cliente mínimo)
+    # - No hay restricción de rol, solo requiere estar autenticado
+    app.include_router(orders.router, prefix=API_PREFIX)
 
-# Usuarios: cualquier endpoint de /users requiere token válido
-app.include_router(users.router)
+    # Mesas: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de tables.py
+    app.include_router(tables.router, prefix=API_PREFIX)
 
-# Restaurantes: todos los endpoints requieren token (cliente mínimo)
-# - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
-app.include_router(restaurants.router)
-
-# Menús: todos los endpoints requieren token (cliente mínimo)
-# - POST, PUT, DELETE requieren rol admin dentro de menus.py
-app.include_router(menus.router)
-
-# Reservaciones: todos los endpoints requieren token válido (cliente mínimo)
-# - No hay restricción de rol, solo requiere estar autenticado
-app.include_router(reservations.router)
-
-# Pedidos: todos los endpoints requieren token válido (cliente mínimo)
-# - No hay restricción de rol, solo requiere estar autenticado
-app.include_router(orders.router)
-
-# Mesas: todos los endpoints requieren token (cliente mínimo)
-# - POST, PUT, DELETE requieren rol admin dentro de tables.py
-app.include_router(tables.router)
-
-# busqueda: todos los endpoints requieren token (cliente mínimo)
-# GET /search/products?q=texto — Busqueda textual en productos.
-# GET /search/products/category/:categoria — Filtrar por categoria.
-# POST /search/reindex — Reindexar productos manualmente.
-app.include_router(search.router)
+if SERVICE_MODE in ("search", "all"):
+    # busqueda: todos los endpoints requieren token (cliente mínimo)
+    # GET /search/products?q=texto — Busqueda textual en productos.
+    # GET /search/products/category/:categoria — Filtrar por categoria.
+    # POST /search/reindex — Reindexar productos manualmente.
+    app.include_router(search.router)
 
 # ========== PUERTO ==========
 
