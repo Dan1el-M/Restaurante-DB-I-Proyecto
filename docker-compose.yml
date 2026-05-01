@@ -263,6 +263,29 @@ services:
     networks:
       - restaurant-network
     restart: "no"
+  redis:
+    image: redis:7.2
+    container_name: restaurant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - restaurant-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: restaurant-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - restaurant-network
 
 # Volumenes para persistir datos
 volumes:
@@ -273,6 +296,9 @@ volumes:
   shard1a_data:
   shard1b_data:
   shard1c_data:
+  mongo_data:
+  redis_data:
+  elasticsearch_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:

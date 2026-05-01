@@ -31,6 +31,7 @@ db.restaurants.createIndex({ admin_id: 1 });
 // Como `menus` se shardea por { restaurant_id, dish_name }, `menu_id` no puede ser UNIQUE.
 db.menus.createIndex({ menu_id: 1 });
 db.menus.createIndex({ restaurant_id: 1, dish_name: 1 }, { unique: true });
+db.menus.createIndex({ category: 1 });
 
 db.tables.createIndex({ table_id: 1 }, { unique: true });
 db.tables.createIndex({ restaurant_id: 1, table_number: 1 }, { unique: true });

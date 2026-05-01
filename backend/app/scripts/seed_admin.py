@@ -25,7 +25,7 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongos:27017/restaurant_mongo_db")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "restaurant_mongo_db")
 
 
-def wait_for_keycloak(max_retries=40, delay=4):
+def wait_for_keycloak(max_retries=100, delay=4):
     url = f"{KEYCLOAK_URL}/realms/master"
 
     for attempt in range(1, max_retries + 1):
