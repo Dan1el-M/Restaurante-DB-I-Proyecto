@@ -27,7 +27,9 @@ db.restaurants.createIndex({ restaurant_id: 1 }, { unique: true });
 db.restaurants.createIndex({ restaurant_name: 1 });
 db.restaurants.createIndex({ admin_id: 1 });
 
-db.menus.createIndex({ menu_id: 1 }, { unique: true });
+// En colecciones shardeadas, cualquier índice UNIQUE debe tener como prefijo el shard key.
+// Como `menus` se shardea por { restaurant_id, dish_name }, `menu_id` no puede ser UNIQUE.
+db.menus.createIndex({ menu_id: 1 });
 db.menus.createIndex({ restaurant_id: 1, dish_name: 1 }, { unique: true });
 
 db.tables.createIndex({ table_id: 1 }, { unique: true });

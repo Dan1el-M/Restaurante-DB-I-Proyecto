@@ -10,6 +10,10 @@ from backend.models.roles import Role
 from backend.models.tables import Table
 from backend.models.users import User
 
+'''
+A este archivo no se le podria aplicar SOLID?
+o ya lo tiene?
+'''
 
 class DAOConflictError(Exception):
     pass
