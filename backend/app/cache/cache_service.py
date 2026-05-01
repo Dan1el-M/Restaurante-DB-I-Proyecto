@@ -2,7 +2,7 @@ import json
 import os
 from backend.app.cache.redis_client import redis_client
 
-CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", 60)) # Time To Live, el tiempo que va a vivir
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS")) # Time To Live, el tiempo que va a vivir el cache
 
 
 def get_cache(key: str):

@@ -19,7 +19,7 @@ def get_admin_token():
     """
     keycloak_url = os.getenv("KEYCLOAK_URL")
     realm = os.getenv("KEYCLOAK_REALM")
-    admin_username = os.getenv("KEYCLOAK_ADMIN_USER") or os.getenv("KEYCLOAK_ADMIN_USERNAME")
+    admin_username = os.getenv("KEYCLOAK_ADMIN_USER")
     admin_password = os.getenv("KEYCLOAK_ADMIN_PASSWORD")
     
     if not all([keycloak_url, realm, admin_username, admin_password]):

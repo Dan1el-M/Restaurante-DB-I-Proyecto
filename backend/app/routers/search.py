@@ -15,7 +15,7 @@ from backend.app.search.search_service import (
 
 router = APIRouter(prefix="/search", tags=["Search"])
 SEARCH_CACHE_PREFIX = "search:products"
-SEARCH_CACHE_TTL_SECONDS = int(os.getenv("SEARCH_CACHE_TTL_SECONDS", 60))
+SEARCH_CACHE_TTL_SECONDS = int(os.getenv("SEARCH_CACHE_TTL_SECONDS"))
 
 
 def normalize_cache_value(value: str):

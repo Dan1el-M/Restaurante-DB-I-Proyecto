@@ -34,7 +34,7 @@ def get_current_user(
 
 def _extract_roles(payload: dict) -> set[str]:
     """Obtiene roles de realm y de cliente para soportar ambas configuraciones."""
-    client_id = os.getenv("KEYCLOAK_CLIENT_ID", "restaurant-client")
+    client_id = os.getenv("KEYCLOAK_CLIENT_ID")
 
     realm_roles = payload.get("realm_access", {}).get("roles", [])
     client_roles = payload.get("resource_access", {}).get(client_id, {}).get("roles", [])
@@ -47,7 +47,7 @@ def require_role(required_role: str):
         payload=Depends(get_current_user),
     ):
         # Los roles del cliente se encuentran en resource_access.<client_id>.roles
-        client_id = os.getenv("KEYCLOAK_CLIENT_ID", "restaurant-client")
+        client_id = os.getenv("KEYCLOAK_CLIENT_ID")
         roles = _extract_roles(payload)
 
         if required_role not in roles:

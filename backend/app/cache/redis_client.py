@@ -1,9 +1,9 @@
 import os
 import redis
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = os.getenv("REDIS_URL")
 
-redis_client = redis.Redis.from_url(
+redis_client = redis.Redis.from_url( # Inicializa el cliente
     REDIS_URL,
     decode_responses=True
 )
