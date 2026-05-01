@@ -21,7 +21,7 @@ DB_NAME = os.getenv("POSTGRES_DB", "restaurant_db")
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "postgres").split("#", 1)[0].strip().lower()
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://admin:admin123@mongo:27017/restaurant_mongo_db?authSource=admin")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongos:27017/restaurant_mongo_db")  #aca tambien se cambia la URL
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "restaurant_mongo_db")
 
 
