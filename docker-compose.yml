@@ -236,7 +236,9 @@ services:
       - restaurant-network
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: dockerfile
     container_name: restaurant-api
     ports:
       - "${API_PORT}:80"
@@ -250,7 +252,9 @@ services:
       - restaurant-network
 
   seed:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: dockerfile
     container_name: restaurant-seed
     command: python backend/app/scripts/seed_admin.py
     env_file:

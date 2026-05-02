@@ -1,6 +1,6 @@
 """
 Script para crear roles en el cliente Keycloak
-Ejecutar: python backend/create_keycloak_roles.py
+Ejecutar: python backend/tests/manual/create_keycloak_roles.py
 """
 
 import os

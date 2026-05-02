@@ -1,6 +1,6 @@
 """
 Script para crear usuarios automáticamente en Keycloak
-Ejecutar: python backend/create_keycloak_users.py
+Ejecutar: python backend/tests/manual/create_keycloak_users.py
 """
 
 import os
