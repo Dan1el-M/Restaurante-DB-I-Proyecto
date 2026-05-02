@@ -20,3 +20,26 @@ La inicialización es automática con el servicio `mongo-setup`:
 Los datos se persisten en volúmenes Docker (ver `docker-compose.yml`):
 - `cfg1_data`, `cfg2_data`, `cfg3_data`
 - `shard1a_data`, `shard1b_data`, `shard1c_data`
+
+
+## Despliegue con imagen publicada (producción local)
+Para mantener ambos escenarios (desarrollo y producción local):
+
+- `docker-compose.yml`: desarrollo (con `build: ./backend`).
+- `docker-compose.prod.yml`: producción local (usa imagen publicada en GHCR).
+
+### Uso
+1. Iniciar sesión en GHCR:
+   ```bash
+   docker login ghcr.io
+   ```
+2. Definir imagen (opcional, por defecto usa `:main`):
+   ```bash
+   export API_IMAGE=ghcr.io/dan1el-m/restaurante-db-i-proyecto:main
+   ```
+3. Levantar con compose base + override prod:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+   ```
+
+Con eso, `api` y `seed` se ejecutan desde la imagen publicada y el resto de servicios conserva la configuración actual.
