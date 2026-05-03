@@ -14,7 +14,11 @@ env:
 jobs:
   unit-tests:
     name: Unit tests
+<<<<<<< ours
     runs-on: ubuntu-24.04
+=======
+    runs-on: ubuntu-latest
+>>>>>>> theirs
 
     steps:
       - name: Checkout
@@ -35,7 +39,11 @@ jobs:
 
   integration-tests:
     name: Integration tests
+<<<<<<< ours
     runs-on: ubuntu-24.04
+=======
+    runs-on: ubuntu-latest
+>>>>>>> theirs
     needs: unit-tests
 
     steps:
@@ -57,7 +65,11 @@ jobs:
 
   docker-build-and-push:
     name: Build and push Docker image
+<<<<<<< ours
     runs-on: ubuntu-24.04
+=======
+    runs-on: ubuntu-latest
+>>>>>>> theirs
     needs: integration-tests
     permissions:
       contents: read
@@ -71,7 +83,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
+<<<<<<< ours
         if: github.event_name != 'pull_request'
+=======
+>>>>>>> theirs
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -81,13 +96,17 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
+<<<<<<< ours
         if: ${{ !env.ACT }}
+=======
+>>>>>>> theirs
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha
 
+<<<<<<< ours
       - name: Set local metadata (act)
         id: meta-local
         if: ${{ env.ACT }}
@@ -95,11 +114,18 @@ jobs:
           echo "tags=local-api:act" >> "$GITHUB_OUTPUT"
           echo "labels=" >> "$GITHUB_OUTPUT"
 
+=======
+>>>>>>> theirs
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/dockerfile
           push: ${{ github.event_name != 'pull_request' }}
+<<<<<<< ours
           tags: ${{ steps.meta.outputs.tags || steps.meta-local.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels || steps.meta-local.outputs.labels }}
+=======
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+>>>>>>> theirs
