@@ -1,6 +1,6 @@
 """
 Script para restablecer contraseñas de usuarios en Keycloak
-Ejecutar: python backend/reset_keycloak_passwords.py
+Ejecutar: python backend/tests/manual/reset_keycloak_passwords.py
 """
 
 import os

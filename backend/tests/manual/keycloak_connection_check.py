@@ -1,6 +1,6 @@
 """
 Script para probar la integración con Keycloak paso a paso.
-Ejecutar: python backend/test_keycloak_connection.py
+Ejecutar: python backend/tests/manual/keycloak_connection_check.py
 """
 
 import os

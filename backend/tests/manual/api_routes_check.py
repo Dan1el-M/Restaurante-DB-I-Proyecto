@@ -1,6 +1,6 @@
 """
 Script para probar las rutas protegidas de la API
-Ejecutar: python backend/test_api_routes.py
+Ejecutar: python backend/tests/manual/api_routes_check.py
 """
 
 import os
