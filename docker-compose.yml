@@ -235,19 +235,107 @@ services:
     networks:
       - restaurant-network
 
+
+  #no me falta la configuracion de nginx??
+
   api:
     build:
       context: ./backend
       dockerfile: dockerfile
-    container_name: restaurant-api
-    ports:
-      - "${API_PORT}:80"
+    expose:
+      - "80"
+    command: ["uvicorn", "backend.app.api_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      - SERVICE_NAME=api
+      - ROOT_PATH=/api
     env_file:
       - .env
     depends_on:
       - postgres
       - mongos
       - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  api_direct:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    ports:
+      - "${API_PORT}:80"
+    command: ["uvicorn", "backend.app.api_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      - SERVICE_NAME=api_direct
+      - ROOT_PATH=
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  search:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    expose:
+      - "80"
+    command: ["uvicorn", "backend.app.search_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      - SERVICE_NAME=search
+      - ROOT_PATH=/search
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  search_direct:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    ports:
+      - "8002:80"
+    command: ["uvicorn", "backend.app.search_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      - SERVICE_NAME=search_direct
+      - ROOT_PATH=
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: restaurant-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - search
     networks:
       - restaurant-network
 
