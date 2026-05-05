@@ -1,14 +1,16 @@
-#Expone Keycloak internamente a otros pods
+#Expone Keycloak al exterior con Load Balancer
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: keycloak
+  name: keycloak-lb
   namespace: restaurante
 spec:
+  type: LoadBalancer
   selector:
     app: keycloak
   ports:
     - name: http
-      port: 8080
+      port: 8001
       targetPort: 8080
+

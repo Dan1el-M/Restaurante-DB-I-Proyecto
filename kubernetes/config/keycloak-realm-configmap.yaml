@@ -1,3 +1,4 @@
+#con este archivo k8s le pasa el archivo al relam de keycloak
 apiVersion: v1
 kind: ConfigMap
 metadata:

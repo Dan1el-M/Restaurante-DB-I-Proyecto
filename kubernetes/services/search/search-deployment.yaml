@@ -1,3 +1,5 @@
+#Despliega el servidor de búsqueda (Elasticsearch) 2 réplicas
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:

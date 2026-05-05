@@ -1,14 +1,16 @@
-#Expone el API internamente a otros pods
+#Expone búsqueda al exterior con Load Balancer
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: api
+  name: search-lb
   namespace: restaurante
 spec:
+  type: LoadBalancer
   selector:
-    app: api
+    app: search
   ports:
     - name: http
-      port: 80
+      port: 8081
       targetPort: 80
+

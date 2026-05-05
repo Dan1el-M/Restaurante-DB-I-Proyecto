@@ -1,4 +1,6 @@
-$ErrorActionPreference = "Stop"
+#este archivo e sun acript para levantarlos todos de golpe con un solo comando
+
+$ErrorActionPreference = "Stop"  #si algo falla lo cancela, es atomico
 
 Write-Host "==> Kubernetes init (namespace: restaurante)"
 
@@ -45,6 +47,11 @@ kubectl -n restaurante get pods | Out-Host
 kubectl -n restaurante get svc | Out-Host
 kubectl -n restaurante get ingress | Out-Host
 
+
+Write-Host "Y luego abrir:"
+Write-Host "- http://localhost:8001/admin/master/console/"
+Write-Host "- http://localhost:8080/api/docs"
+Write-Host "- http://localhost:8081/search/docs" 
 Write-Host ""
 Write-Host "NOTAS:"
 Write-Host "- Si ves que Ingress no enruta, instala un Ingress Controller (NGINX Ingress) en tu cluster."
@@ -58,3 +65,8 @@ Write-Host "- URLs esperadas (cuando el Ingress Controller esté activo): http:/
 
 #para bajarlos todos ya es:
 #kubectl delete namespace restaurante
+
+#rutas que hay que levantar
+#http://localhost:8001/admin/master/console/ 
+#http://localhost:8080/api/docs 
+#http://localhost:8081/search/docs 

@@ -1,3 +1,5 @@
+#Define cómo acceder a la aplicación desde fuera del cluster
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,6 +9,7 @@ metadata:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
+  ingressClassName: nginx
   rules:
     - http:
         paths:

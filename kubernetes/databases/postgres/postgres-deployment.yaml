@@ -1,3 +1,5 @@
+#Despliega PostgreSQL como Deployment para manejar la base de datos relacional
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:

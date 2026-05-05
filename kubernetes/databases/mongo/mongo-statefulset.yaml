@@ -1,3 +1,5 @@
+#Despliega MongoDB como StatefulSet para mantener datos persistentes
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

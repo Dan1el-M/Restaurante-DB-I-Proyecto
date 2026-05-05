@@ -47,3 +47,22 @@ Para importar tu realm real (`backend/app/restaurant-realm.json`), lo más limpi
 ## URLs esperadas (vía Ingress)
 - API Swagger: `/api/docs`
 - Search Swagger: `/search/docs`
+
+## Si el Ingress no funciona
+Si `kubectl -n restaurante get ingress` muestra `ADDRESS` vacío, te falta instalar un **Ingress Controller** (por ejemplo NGINX Ingress) o configurar un IngressClass por defecto.
+
+Como alternativa inmediata podés usar port-forward:
+- API: `kubectl -n restaurante port-forward svc/api 8080:80` → `http://localhost:8080/api/docs`
+- Search: `kubectl -n restaurante port-forward svc/search 8081:80` → `http://localhost:8081/search/docs`
+- Keycloak: `kubectl -n restaurante port-forward svc/keycloak 8001:8080` → `http://localhost:8001/admin/master/console/`
+
+## Instalar NGINX Ingress Controller (Docker Desktop)
+Ejecutá:
+- `powershell -ExecutionPolicy Bypass -File kubernetes/_installIngressNginx.ps1`
+
+## Exponer URLs con puertos (sin port-forward)
+En Docker Desktop, podés exponer servicios con `type: LoadBalancer` y acceder por `localhost`.
+Este repo incluye:
+- `kubernetes/services/api/api-lb-service.yaml` → `http://localhost:8080/api/docs`
+- `kubernetes/services/search/search-lb-service.yaml` → `http://localhost:8081/search/docs`
+- `kubernetes/services/keycloak/keycloak-lb-service.yaml` → `http://localhost:8001/admin/master/console/`

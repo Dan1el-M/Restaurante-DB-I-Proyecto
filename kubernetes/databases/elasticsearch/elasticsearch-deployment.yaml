@@ -1,3 +1,5 @@
+#Despliega Elasticsearch (motor de búsqueda)
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:

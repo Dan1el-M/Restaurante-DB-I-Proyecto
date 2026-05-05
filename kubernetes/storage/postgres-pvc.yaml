@@ -1,3 +1,5 @@
+#Reserva espacio en disco para PostgreSQL
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

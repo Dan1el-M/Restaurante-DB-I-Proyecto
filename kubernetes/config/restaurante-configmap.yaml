@@ -12,3 +12,5 @@ data:
   KEYCLOAK_URL: "http://keycloak:8080"
   KEYCLOAK_REALM: "restaurant-realm"
   KEYCLOAK_CLIENT_ID: "restaurant-client"
+
+  #Define variables de entorno públicas que todos los pods

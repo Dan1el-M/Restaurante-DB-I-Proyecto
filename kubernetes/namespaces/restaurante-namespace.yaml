@@ -1,3 +1,6 @@
+#Crea el namespace "restaurante" como contenedor aislado
+#Todos los pods, servicios y volúmenes van dentro de este namespace
+
 apiVersion: v1
 kind: Namespace
 metadata:

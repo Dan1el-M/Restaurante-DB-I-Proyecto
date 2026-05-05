@@ -1,3 +1,5 @@
+#Expone Elasticsearch a otros pods
+
 apiVersion: v1
 kind: Service
 metadata:

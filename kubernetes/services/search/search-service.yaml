@@ -1,3 +1,5 @@
+#Expone el servicio de búsqueda internamente
+
 apiVersion: v1
 kind: Service
 metadata:
