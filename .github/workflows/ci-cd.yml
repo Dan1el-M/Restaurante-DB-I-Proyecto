@@ -16,6 +16,11 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-24.04
 
+    env:
+      DATABASE_ENGINE: postgres
+      SERVICE_MODE: api
+      SEARCH_CACHE_TTL_SECONDS: 300
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,7 +42,12 @@ jobs:
     name: Integration tests
     runs-on: ubuntu-24.04
     needs: unit-tests
-
+    
+    env:
+      DATABASE_ENGINE: postgres
+      SERVICE_MODE: api
+      SEARCH_CACHE_TTL_SECONDS: 300
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
