@@ -1,0 +1,13 @@
+#Reserva 2GB de disco para que Elasticsearch guarde índices de búsqueda
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-pvc
+  namespace: restaurante
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

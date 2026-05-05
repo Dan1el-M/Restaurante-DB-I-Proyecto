@@ -2,9 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-@pytest.mark.unit
+@pytest.mark.unit #señal de que es un test unitario, no de integración
 def test_public_routes_smoke():
-    """Valida que rutas públicas (/ping, /health, /) están disponibles y funcionales."""
     from backend.app.main import app
 
     client = TestClient(app)

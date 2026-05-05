@@ -1,0 +1,23 @@
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/dan1el-m/restaurante-db-i-proyecto:main}
+    pull_policy: always
+    build: null
+
+  seed:
+    image: ${API_IMAGE:-ghcr.io/dan1el-m/restaurante-db-i-proyecto:main}
+    pull_policy: always
+    build: null
+
+# ========== CÓMO USAR ESTE ARCHIVO ==========
+# 1. Autenticarse en GHCR:
+#    docker login ghcr.io
+#
+# 2. Especificar imagen de GHCR:
+#    export API_IMAGE=ghcr.io/dan1el-m/restaurante-db-i-proyecto:main
+#
+# 3. Ejecutar stack completo desde GHCR:
+#    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# 4. Ver configuración final:
+#    docker compose -f docker-compose.yml -f docker-compose.prod.yml config
