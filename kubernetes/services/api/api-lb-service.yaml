@@ -1,0 +1,16 @@
+#Expone el API al exterior con Load Balancer
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-lb
+  namespace: restaurante
+spec:
+  type: LoadBalancer
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+

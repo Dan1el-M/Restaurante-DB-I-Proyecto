@@ -1,0 +1,14 @@
+#Expone Elasticsearch a otros pods
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: restaurante
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
