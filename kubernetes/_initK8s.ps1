@@ -64,7 +64,7 @@ Write-Host "- URLs esperadas (cuando el Ingress Controller esté activo): http:/
 #kubectl get pods -A
 
 #para bajarlos todos ya es:
-#kubectl delete namespace restaurante
+# kubectl delete namespace restaurante
 
 #rutas que hay que levantar
 #http://localhost:8001/admin/master/console/ 
