@@ -1,0 +1,10 @@
+[run]
+omit =
+    backend/app/autentificador/*
+    backend/app/cache/*
+    backend/app/main.py
+    backend/app/search/*
+    backend/app/routers/auth.py
+    backend/app/routers/search.py
+    backend/database.py
+    backend/tests/*
