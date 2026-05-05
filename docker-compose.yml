@@ -294,6 +294,8 @@ services:
       - ROOT_PATH=/search
     env_file:
       - .env
+    environment:
+      - SERVICE_MODE=api
     depends_on:
       - postgres
       - mongos

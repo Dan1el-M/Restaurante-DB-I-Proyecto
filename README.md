@@ -16,6 +16,11 @@ La inicialización es automática con el servicio `mongo-setup`:
 ### Cómo ejecutar
 - `docker compose up -d --build`
 
+### Nginx
+El balanceador queda expuesto en `http://localhost:8080` por defecto (`NGINX_PORT` en `.env`):
+- `http://localhost:8080/api/**` redirige al microservicio principal.
+- `http://localhost:8080/search/**` redirige al microservicio de busqueda.
+
 ### Persistencia
 Los datos se persisten en volúmenes Docker (ver `docker-compose.yml`):
 - `cfg1_data`, `cfg2_data`, `cfg3_data`
