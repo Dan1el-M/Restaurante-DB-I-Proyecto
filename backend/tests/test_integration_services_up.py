@@ -3,6 +3,10 @@ import time
 
 import pytest
 import requests
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 def _wait_ok(url: str, timeout_s: int = 120) -> None:
@@ -43,20 +47,13 @@ def _wait_any_ok(urls: list[str], timeout_s: int = 120) -> str:
 @pytest.mark.integration
 def test_api_and_keycloak_are_reachable():
     """Valida que Keycloak y API están levantados y responden correctamente."""
-    api_base = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
-    keycloak_base = os.getenv("KEYCLOAK_BASE_URL", "http://localhost:8001").rstrip("/")
+    api_base = f"http://localhost:{os.getenv('API_PORT')}/api"
+    keycloak_base = f"http://localhost:{os.getenv('KEYCLOAK_PORT')}"
 
-    # Espera a Keycloak (intenta health/ready, health/live o health)
-    _wait_any_ok(
-        [
-            f"{keycloak_base}/health/ready",
-            f"{keycloak_base}/health/live",
-            f"{keycloak_base}/health",
-        ],
-        timeout_s=180,
-    )
+    # Espera a Keycloak
+    _wait_ok(f"{keycloak_base}/realms/master", timeout_s=180)
     # Espera a API
-    _wait_ok(f"{api_base}/health")
+    _wait_ok(f"{api_base}/ping")
 
     # Valida que /ping responde correctamente
     assert requests.get(f"{api_base}/ping", timeout=5).json()["message"] == "pong"

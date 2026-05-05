@@ -9,9 +9,8 @@ from sqlalchemy.orm import sessionmaker
 load_dotenv()
 
 # Motor activo: postgres o mongo. La API usa solo uno a la vez.
-# 1-DATABASE_ENGINE = "postgres" o "mongo", si no se especifica, se asume "postgres"
-#2- split("#", 1)[0].strip().lower() elimina los comentarios para evitar errores del .env
-DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "postgres").split("#", 1)[0].strip().lower()
+# split("#", 1)[0].strip().lower() elimina los comentarios para evitar errores del .env
+DATABASE_ENGINE = os.getenv("DATABASE_ENGINE").split("#", 1)[0].strip().lower()
 
 # Conexion a PostgreSQL
 POSTGRES_URL = os.getenv("POSTGRES_URL")

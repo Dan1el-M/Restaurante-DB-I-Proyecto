@@ -23,7 +23,7 @@ from backend.app.routers import auth, menus, orders, reservations, restaurants, 
 
 API_PREFIX = "/api"
 SEARCH_PREFIX = "/search"
-SERVICE_MODE = os.getenv("SERVICE_MODE", "all").lower()
+SERVICE_MODE = os.getenv("SERVICE_MODE").lower()
 DOCS_PREFIX = SEARCH_PREFIX if SERVICE_MODE == "search" else API_PREFIX
 
 app = FastAPI(
@@ -102,8 +102,8 @@ if SERVICE_MODE in ("search", "all"):
 if __name__ == "__main__":
     
     # Puerto y host configurables por variables de entorno
-    port = int(os.getenv("BACKEND_PORT", 8000))
-    host = os.getenv("BACKEND_HOST", "0.0.0.0")
+    port = int(os.getenv("API_PORT"))
+    host = os.getenv("API_HOST")
     
     print(f"🚀 Servidor corriendo en {host}:{port}")
     

@@ -1,28 +1,37 @@
 import os
 import time
+from urllib.parse import urlparse
+
 import requests
 import psycopg2
 from pymongo import MongoClient, ReturnDocument
 from psycopg2 import OperationalError
+from dotenv import load_dotenv
 
 
-KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
-KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "restaurant-realm")
-KEYCLOAK_ADMIN_USER = os.getenv("KEYCLOAK_ADMIN_USER", "admin")
-KEYCLOAK_ADMIN_PASSWORD = os.getenv("KEYCLOAK_ADMIN_PASSWORD", "admin")
+load_dotenv()
 
-ADMIN_USERNAME = os.getenv("SEED_ADMIN_USERNAME", "admin")
-ADMIN_EMAIL = os.getenv("SEED_ADMIN_EMAIL", "admin@example.com")
-ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD", "admin")
 
-DB_HOST = os.getenv("DB_HOST", "postgres")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("POSTGRES_DB", "restaurant_db")
-DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
-DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "postgres").split("#", 1)[0].strip().lower()
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://mongos:27017/restaurant_mongo_db")  #aca tambien se cambia la URL
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "restaurant_mongo_db")
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM")
+KEYCLOAK_ADMIN_USER = os.getenv("KEYCLOAK_ADMIN_USER")
+KEYCLOAK_ADMIN_PASSWORD = os.getenv("KEYCLOAK_ADMIN_PASSWORD")
+
+ADMIN_USERNAME = os.getenv("SEED_ADMIN_USERNAME")
+ADMIN_EMAIL = os.getenv("SEED_ADMIN_EMAIL")
+ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD")
+
+POSTGRES_URL = os.getenv("POSTGRES_URL")
+DB_NAME = os.getenv("POSTGRES_DB")
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+DATABASE_ENGINE = os.getenv("DATABASE_ENGINE").split("#", 1)[0].strip().lower()
+MONGO_URL = os.getenv("MONGO_URL")
+MONGO_DB_NAME = os.getenv("MONGO_DB")
+
+postgres_url = urlparse(POSTGRES_URL.replace("postgresql+psycopg2://", "postgresql://", 1))
+DB_HOST = postgres_url.hostname
+DB_PORT = postgres_url.port
 
 # Este script lo que hace es colocar el admin tanto como en la base de datos como en el keyclock, para que al iniciar el programa, ya esté definido el admin
 def wait_for_keycloak(max_retries=100, delay=4):

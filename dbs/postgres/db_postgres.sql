@@ -1,30 +1,30 @@
-CREATE TABLE Roles (
+CREATE TABLE roles (
     role_id         SERIAL      PRIMARY KEY,
-    role_name       VARCHAR(64) NOT NULL
+    role_name       VARCHAR(64) NOT NULL UNIQUE
 
 );
 
-CREATE TABLE Users (
+CREATE TABLE users (
     user_id         SERIAL      PRIMARY KEY,
     user_name       VARCHAR(64) NOT NULL,
+    keycloak_id     VARCHAR(255) UNIQUE,
     role_id         INT         NOT NULL,
-    email           VARCHAR(128) NOT NULL,
-    password_hash   VARCHAR(256) NOT NULL, 
-    /*deberiamos de guardar la contras y el correo y al contra como hash?*/
 
-    CONSTRAINT FK_Users_Roles FOREIGN KEY (role_id) REFERENCES Roles(role_id)
+    CONSTRAINT FK_Users_Roles FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
 
-CREATE TABLE Restaurants (
+CREATE INDEX ix_users_keycloak_id ON users(keycloak_id);
+
+CREATE TABLE restaurants (
     restaurant_id     SERIAL       PRIMARY KEY,
     restaurant_name   VARCHAR(64)  NOT NULL,
     admin_id          INT          NOT NULL,
     restaurant_status INT          NOT NULL,
 
-    CONSTRAINT FK_Restaurant_Users FOREIGN KEY (admin_id) REFERENCES Users(user_id)
+    CONSTRAINT FK_Restaurant_Users FOREIGN KEY (admin_id) REFERENCES users(user_id)
 );
 
-CREATE TABLE Menus (
+CREATE TABLE menus (
     menu_id             SERIAL          PRIMARY KEY,
     dish_name           VARCHAR(64)     NOT NULL,
     category            VARCHAR(64)     NOT NULL DEFAULT 'general',
@@ -32,53 +32,52 @@ CREATE TABLE Menus (
     price               NUMERIC(10,2)   NOT NULL,
     restaurant_id       INT             NOT NULL,
 
-    CONSTRAINT FK_Menus_Restaurants       FOREIGN KEY(restaurant_id) REFERENCES Restaurants(restaurant_id),
+    CONSTRAINT FK_Menus_Restaurants       FOREIGN KEY(restaurant_id) REFERENCES restaurants(restaurant_id),
     CONSTRAINT unique_dish_per_restaurant UNIQUE (restaurant_id, dish_name)
 );
 
 
-CREATE TABLE Tables (
+CREATE TABLE tables (
     table_id            SERIAL      PRIMARY KEY,
     table_number        INT         NOT NULL,
     table_status        INT         NOT NULL,
     restaurant_id       INT         NOT NULL,
 
-    CONSTRAINT FK_Tables_Restaurants       FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id),
+    CONSTRAINT FK_Tables_Restaurants       FOREIGN KEY (restaurant_id) REFERENCES restaurants(restaurant_id),
     CONSTRAINT unique_table_per_restaurant UNIQUE (restaurant_id, table_number)
 );
 
 
-CREATE TABLE Orders (
+CREATE TABLE orders (
     order_id        SERIAL      PRIMARY KEY,
     table_id        INT         NULL,
     client_id       INT         NOT NULL,
     order_type      VARCHAR(64) NOT NULL,
     restaurant_id   INT         NOT NULL,
 
-    CONSTRAINT FK_Orders_Restaurants FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id),
-    CONSTRAINT FK_Orders_Table       FOREIGN KEY (table_id)      REFERENCES Tables(table_id),
-    CONSTRAINT FK_Orders_Users       FOREIGN KEY (client_id)     REFERENCES Users(user_id)
+    CONSTRAINT FK_Orders_Restaurants FOREIGN KEY (restaurant_id) REFERENCES restaurants(restaurant_id),
+    CONSTRAINT FK_Orders_Table       FOREIGN KEY (table_id)      REFERENCES tables(table_id),
+    CONSTRAINT FK_Orders_Users       FOREIGN KEY (client_id)     REFERENCES users(user_id)
 );
 
-CREATE TABLE Order_Items (
+CREATE TABLE order_items (
     order_item_id   SERIAL        PRIMARY KEY,
     order_id        INT           NOT NULL,
     menu_id         INT           NOT NULL,
     quantity        INT           NOT NULL,
     price           NUMERIC(10,2) NOT NULL,
 
-    CONSTRAINT FK_Order_Items_Orders FOREIGN KEY (order_id) REFERENCES Orders(order_id),
-    CONSTRAINT FK_Order_Items_Menus  FOREIGN KEY (menu_id)  REFERENCES Menus(menu_id)
+    CONSTRAINT FK_Order_Items_Orders FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    CONSTRAINT FK_Order_Items_Menus  FOREIGN KEY (menu_id)  REFERENCES menus(menu_id)
 );
 
-CREATE TABLE Reservations (
+CREATE TABLE reservations (
     reservation_id     SERIAL      PRIMARY KEY,
     table_id           INT         NOT NULL,
     client_id          INT         NOT NULL,
     reservation_date   TIMESTAMP   NOT NULL,
     reservation_status INT         NOT NULL,
 
-    CONSTRAINT FK_Reservations_Tables FOREIGN KEY (table_id)  REFERENCES Tables(table_id),
-    CONSTRAINT FK_Reservations_Users  FOREIGN KEY (client_id) REFERENCES Users(user_id)
+    CONSTRAINT FK_Reservations_Tables FOREIGN KEY (table_id)  REFERENCES tables(table_id),
+    CONSTRAINT FK_Reservations_Users  FOREIGN KEY (client_id) REFERENCES users(user_id)
 );
-
