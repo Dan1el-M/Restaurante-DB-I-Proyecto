@@ -20,6 +20,7 @@ jobs:
       DATABASE_ENGINE: postgres
       SERVICE_MODE: api
       SEARCH_CACHE_TTL_SECONDS: 300
+      REDIS_URL: redis://localhost:6379/0
       
     steps:
       - name: Checkout
@@ -47,6 +48,7 @@ jobs:
       DATABASE_ENGINE: postgres
       SERVICE_MODE: api
       SEARCH_CACHE_TTL_SECONDS: 300
+      REDIS_URL: redis://localhost:6379/0
       
     steps:
       - name: Checkout
