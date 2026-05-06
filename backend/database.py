@@ -10,7 +10,7 @@ load_dotenv()
 
 # Motor activo: postgres o mongo. La API usa solo uno a la vez.
 # split("#", 1)[0].strip().lower() elimina los comentarios para evitar errores del .env
-DATABASE_ENGINE = os.getenv("DATABASE_ENGINE").split("#", 1)[0].strip().lower()
+DATABASE_ENGINE = os.getenv("DATABASE_ENGINE", "postgres").split("#", 1)[0].strip().lower()
 
 # Conexion a PostgreSQL
 POSTGRES_URL = os.getenv("POSTGRES_URL")
