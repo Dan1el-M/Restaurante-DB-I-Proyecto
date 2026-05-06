@@ -9,6 +9,7 @@ from backend.app.api_main import app
 
 
 @pytest.mark.integration
+@pytest.mark.asyncio
 async def test_api_health_endpoint():
     """Prueba que el endpoint de health esté disponible"""
     async with AsyncClient(app=app, base_url="http://test") as client:
@@ -17,6 +18,7 @@ async def test_api_health_endpoint():
 
 
 @pytest.mark.integration
+@pytest.mark.asyncio
 async def test_api_starts():
     """Prueba que la API se puede inicializar"""
     assert app is not None
