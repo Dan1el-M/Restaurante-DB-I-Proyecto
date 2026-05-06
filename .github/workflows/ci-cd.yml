@@ -31,7 +31,14 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Run unit tests
-        run: pytest -q backend/tests/unit
+        run: >
+          pytest -q backend/tests/unit
+          --cov=backend
+          --cov-report=html
+          --cov-report=term-missing
+          --cov-report=term-missing:skip-covered
+          --cov-report=xml
+          --cov-fail-under=90
 
   integration-tests:
     name: Integration tests
