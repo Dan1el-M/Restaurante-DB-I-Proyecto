@@ -1,3 +1,4 @@
 INSERT INTO roles (role_name) VALUES 
 ('admin'),
-('client');
+('client')
+ON CONFLICT (role_name) DO NOTHING;

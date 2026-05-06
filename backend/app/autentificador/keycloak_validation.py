@@ -46,8 +46,7 @@ def validate_token(token: str):
 	keycloak_url = os.getenv("KEYCLOAK_URL") #saca la url de keycloak del .env
 	realm = os.getenv("KEYCLOAK_REALM") # saca el realm del .env
 	#esto no termino de entender que obtiene en realidad
-	client_id = os.getenv("KEYCLOAK_CLIENT_ID")
-	audience = os.getenv("KEYCLOAK_TOKEN_AUDIENCE", "account")
+	audience = os.getenv("KEYCLOAK_TOKEN_AUDIENCE")
 
     #contruye la url del issuer
 	issuer = f"{keycloak_url}/realms/{realm}"

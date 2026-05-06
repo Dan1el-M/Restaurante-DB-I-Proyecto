@@ -5,6 +5,9 @@ from backend.app.autentificador.keycloak_dependencies import get_current_user
 from backend.app.cache.cache_service import get_cache, set_cache, delete_cache_pattern
 from backend.dao import BaseDAO
 from backend.database import get_dao
+
+SEARCH_CACHE_TTL_SECONDS = int(os.getenv("SEARCH_CACHE_TTL_SECONDS", "300"))
+
 from backend.app.search.search_service import (
     create_index,
     index_product,
@@ -15,7 +18,6 @@ from backend.app.search.search_service import (
 
 router = APIRouter(prefix="/search", tags=["Search"])
 SEARCH_CACHE_PREFIX = "search:products"
-SEARCH_CACHE_TTL_SECONDS = int(os.getenv("SEARCH_CACHE_TTL_SECONDS", 60))
 
 
 def normalize_cache_value(value: str):

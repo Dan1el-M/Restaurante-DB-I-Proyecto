@@ -25,7 +25,7 @@ def _missing_keycloak_env_vars():
     missing = [var for var in KEYCLOAK_REQUIRED_ENV if not os.getenv(var)]
 
     # El usuario admin puede venir en cualquiera de estas dos variables
-    admin_user = os.getenv("KEYCLOAK_ADMIN_USER") or os.getenv("KEYCLOAK_ADMIN_USERNAME")
+    admin_user = os.getenv("KEYCLOAK_ADMIN_USER")
     if not admin_user:
         missing.append("KEYCLOAK_ADMIN_USER o KEYCLOAK_ADMIN_USERNAME")
 

@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./dbs:/docker-entrypoint-initdb.d
+      - ./dbs/postgres:/docker-entrypoint-initdb.d
     networks:
       - restaurant-network
 
@@ -26,8 +26,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
 #replica 2 de sharding
@@ -42,8 +42,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
 #replica 3 de sharding
@@ -58,8 +58,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
@@ -74,8 +74,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
@@ -90,8 +90,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
@@ -106,8 +106,8 @@ services:
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
-      timeout: 5s
-      retries: 24
+      timeout: 10s
+      retries: 36
       start_period: 10s
 
   mongos:
@@ -292,10 +292,9 @@ services:
     environment:
       - SERVICE_NAME=search
       - ROOT_PATH=/search
+      - SERVICE_MODE=api
     env_file:
       - .env
-    environment:
-      - SERVICE_MODE=api
     depends_on:
       - postgres
       - mongos
