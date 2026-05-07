@@ -44,6 +44,12 @@ Write-Host "==> [4/7] Storage + DBs..."
 kubectl apply -f kubernetes/storage/
 Assert-LastExitCode "Fallo aplicando kubernetes/storage/"
 
+Write-Host "==> [4.x/7] Creando ConfigMap DDL Postgres..."
+kubectl -n restaurante create configmap postgres-initdb `
+  --from-file=01_schema.sql=dbs\postgres\db_postgres.sql `
+  --from-file=02_seed.sql=dbs\postgres\init.sql `
+  --dry-run=client -o yaml | kubectl apply -f -
+
 # Re-ejecutar jobs de init si ya existían (kubectl apply no recrea Jobs completados/fallidos)
 Write-Host "==> [4.0/6] Reiniciando Jobs de DB (si existen)..."
 kubectl -n restaurante delete job mongo-cluster-init --ignore-not-found | Out-Host
@@ -172,7 +178,7 @@ Write-Host "- Si ves que Ingress no enruta, instala un Ingress Controller (NGINX
 Write-Host "- URLs esperadas (cuando el Ingress Controller esté activo): http://localhost/api/docs y http://localhost/search/docs"
 
 #comando para levanrlo
-#powershell -ExecutionPolicy Bypass -File kubernetes/_initK8s.ps1
+#  powershell -ExecutionPolicy Bypass -File kubernetes/_initK8s.ps1
 
 #para ver los pods activos
 #kubectl get pods -A

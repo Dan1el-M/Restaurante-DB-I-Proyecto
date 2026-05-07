@@ -235,15 +235,35 @@ def insert_admin_in_postgres(keycloak_id):
     try:
         with conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                # Asegura que el rol exista incluso si el init.sql no corrió
+                # (Postgres solo ejecuta /docker-entrypoint-initdb.d cuando el volumen está vacío).
+                cur.execute(
+                    """
+                    INSERT INTO roles (role_name)
+                    VALUES ('admin')
+                    ON CONFLICT (role_name) DO NOTHING;
+                    """
+                )
+
+                cur.execute(
+                    "SELECT role_id FROM roles WHERE role_name = 'admin';"
+                )
+                row = cur.fetchone()
+                if not row or row[0] is None:
+                    raise Exception("No existe role_id para role_name='admin' en Postgres")
+
+                admin_role_id = row[0]
+
+                cur.execute(
+                    """
                     INSERT INTO users (user_name, role_id, keycloak_id)
-                    VALUES (
-                        %s,
-                        (SELECT role_id FROM roles WHERE role_name = 'admin'),
-                        %s
-                    )
-                    ON CONFLICT (keycloak_id) DO NOTHING;
-                """, (ADMIN_USERNAME, keycloak_id))
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (keycloak_id) DO UPDATE
+                    SET user_name = EXCLUDED.user_name,
+                        role_id = EXCLUDED.role_id;
+                    """,
+                    (ADMIN_USERNAME, admin_role_id, keycloak_id),
+                )
 
         print("Usuario admin insertado o ya existente en PostgreSQL.")
 
