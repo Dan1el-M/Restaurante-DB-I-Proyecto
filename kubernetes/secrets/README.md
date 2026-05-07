@@ -1,20 +1,24 @@
-# Secrets (no hardcode)
+# Secrets y .env
 
-Por política del curso, **no se versionan passwords** en YAML.
+Por politica del curso, no se versionan passwords en YAML. El archivo principal para configurar el proyecto es el `.env` de la raiz.
 
-## Cómo crear el Secret
-1) Copiar el ejemplo:
-- Copiá `kubernetes/secrets/.env.secret.example` a `kubernetes/secrets/.env.secret`
+## Como funciona con Kubernetes
 
-2) Editar valores reales en `kubernetes/secrets/.env.secret`
+`kubernetes/_initK8s.ps1` lee `.env` y genera automaticamente:
+- `restaurante-config`: variables no sensibles.
+- `restaurante-secret`: passwords, secrets, tokens y URLs sensibles como `POSTGRES_URL`.
 
-3) Crear/actualizar el secret en el cluster:
-- `kubectl -n restaurante create secret generic restaurante-secret --from-env-file=kubernetes/secrets/.env.secret --dry-run=client -o yaml | kubectl apply -f -`
+Si queres separar secretos localmente, podes crear `kubernetes/secrets/.env.secret` copiando `kubernetes/secrets/.env.secret.example`. Sus valores reemplazan los del `.env` solo durante el init de Kubernetes.
 
-## Qué variables van aquí
+Para levantar Kubernetes:
+- `powershell -ExecutionPolicy Bypass -File kubernetes/_initK8s.ps1`
+
+## Que variables van aqui
+
 - `POSTGRES_PASSWORD`
 - `POSTGRES_URL` (contiene password)
 - `MONGO_PASSWORD` (si aplica)
 - `KEYCLOAK_ADMIN_USER`
 - `KEYCLOAK_ADMIN_PASSWORD`
-
+- `KEYCLOAK_CLIENT_SECRET` (si aplica)
+- `SEED_ADMIN_PASSWORD`

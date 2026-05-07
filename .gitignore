@@ -140,6 +140,7 @@ celerybeat.pid
 .venv
 .env.secret
 kubernetes/secrets/.env.secret
+kubernetes/.generated/
 env/
 venv/
 ENV/
