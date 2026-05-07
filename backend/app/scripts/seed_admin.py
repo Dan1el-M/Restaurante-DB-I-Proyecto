@@ -13,7 +13,7 @@ load_dotenv()
 
 
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
-KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM")
+KEYCLOAK_REALM = os.getenv("SEED_KEYCLOAK_TARGET_REALM") or os.getenv("KEYCLOAK_REALM")
 KEYCLOAK_ADMIN_USER = os.getenv("KEYCLOAK_ADMIN_USER")
 KEYCLOAK_ADMIN_PASSWORD = os.getenv("KEYCLOAK_ADMIN_PASSWORD")
 
@@ -34,7 +34,7 @@ DB_HOST = postgres_url.hostname
 DB_PORT = postgres_url.port
 
 # Este script lo que hace es colocar el admin tanto como en la base de datos como en el keyclock, para que al iniciar el programa, ya esté definido el admin
-def wait_for_keycloak(max_retries=100, delay=4):
+def wait_for_keycloak(max_retries=1000, delay=4):
     url = f"{KEYCLOAK_URL}/realms/master"
 
     for attempt in range(1, max_retries + 1):
@@ -89,6 +89,25 @@ def wait_for_mongo(max_retries=30, delay=3):
     raise Exception("MongoDB no estuvo listo a tiempo")
 
 
+
+
+def wait_for_realm(max_retries=60, delay=3):
+    url = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}"
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                print(f"Realm '{KEYCLOAK_REALM}' listo.")
+                return
+        except requests.exceptions.RequestException:
+            pass
+
+        print(f"Esperando realm {KEYCLOAK_REALM}... intento {attempt}")
+        time.sleep(delay)
+
+    raise Exception(f"Realm '{KEYCLOAK_REALM}' no estuvo listo a tiempo")
+
 def get_admin_token():
     url = f"{KEYCLOAK_URL}/realms/master/protocol/openid-connect/token"
 
@@ -112,6 +131,11 @@ def get_or_create_keycloak_user(token):
 
     users_url = f"{KEYCLOAK_URL}/admin/realms/{KEYCLOAK_REALM}/users"
 
+    if not ADMIN_USERNAME:
+        raise ValueError("SEED_ADMIN_USERNAME no esta configurado")
+    if not ADMIN_PASSWORD:
+        raise ValueError("SEED_ADMIN_PASSWORD no esta configurado")
+
     search_response = requests.get(
         users_url,
         headers=headers,
@@ -125,11 +149,7 @@ def get_or_create_keycloak_user(token):
 
     user_payload = {
         "username": ADMIN_USERNAME,
-        "firstName": "Admin",
-        "lastName": "User",
-        "email": ADMIN_EMAIL,
         "enabled": True,
-        "emailVerified": True,
         "firstName": ADMIN_USERNAME,
         "lastName": ADMIN_USERNAME,
         "requiredActions": [],
@@ -141,6 +161,11 @@ def get_or_create_keycloak_user(token):
             }
         ],
     }
+
+    # Keycloak devuelve 400 si se manda email=null o email invalido.
+    if ADMIN_EMAIL:
+        user_payload["email"] = ADMIN_EMAIL
+        user_payload["emailVerified"] = True
 
     if users:
         existing_user = users[0]
@@ -158,7 +183,11 @@ def get_or_create_keycloak_user(token):
             json=user_payload,
             timeout=10,
         )
-        update_response.raise_for_status()
+        if update_response.status_code >= 400:
+            raise Exception(
+                "Error actualizando usuario admin en Keycloak "
+                f"({update_response.status_code}): {update_response.text}"
+            )
 
         print("Usuario admin ya existe en Keycloak (actualizado).")
         return user_id
@@ -169,7 +198,18 @@ def get_or_create_keycloak_user(token):
         json=user_payload,
         timeout=10,
     )
-    create_response.raise_for_status()
+    if create_response.status_code >= 400:
+        raise Exception(
+            "Error creando usuario admin en Keycloak "
+            f"({create_response.status_code}): {create_response.text}"
+        )
+
+    # Keycloak suele responder 201 (Created) o 204 (No Content) en create user.
+    if create_response.status_code not in (201, 204):
+        raise Exception(
+            "Respuesta inesperada creando usuario admin en Keycloak "
+            f"({create_response.status_code}): {create_response.text}"
+        )
 
     search_response = requests.get(
         users_url,
@@ -273,7 +313,11 @@ def get_or_create_realm_role(token, role_name):
         json=payload,
         timeout=10,
     )
-    create_response.raise_for_status()
+    if create_response.status_code >= 400:
+        raise Exception(
+            f"Error creando rol '{role_name}' en Keycloak "
+            f"({create_response.status_code}): {create_response.text}"
+        )
 
     response = requests.get(role_url, headers=headers, timeout=10)
     response.raise_for_status()
@@ -310,7 +354,11 @@ def assign_realm_role_to_user(token, user_id, role):
     print(f"Rol '{role['name']}' asignado al usuario admin en Keycloak.")
 
 def main():
+    if not KEYCLOAK_REALM:
+        raise ValueError("KEYCLOAK_REALM/SEED_KEYCLOAK_TARGET_REALM no esta configurado")
+
     wait_for_keycloak()
+    wait_for_realm()
     if DATABASE_ENGINE == "mongo":
         wait_for_mongo()
     else:

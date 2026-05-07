@@ -24,15 +24,16 @@ from backend.app.routers import auth, menus, orders, reservations, restaurants, 
 API_PREFIX = "/api"
 SEARCH_PREFIX = "/search"
 SERVICE_MODE = os.getenv("SERVICE_MODE", "api").lower()
-DOCS_PREFIX = SEARCH_PREFIX if SERVICE_MODE == "search" else API_PREFIX
+ROOT_PATH = os.getenv("ROOT_PATH", "").rstrip("/")
+DOCS_PREFIX = ROOT_PATH if ROOT_PATH else (SEARCH_PREFIX if SERVICE_MODE == "search" else "")
 
 app = FastAPI(
     title="Restaurante API",
     description="API para gestión de restaurantes, reservaciones y menús",
     version="1.0.0",
-    docs_url=f"{DOCS_PREFIX}/docs",
-    redoc_url=f"{DOCS_PREFIX}/redoc",
-    openapi_url=f"{DOCS_PREFIX}/openapi.json",
+    docs_url=f"{DOCS_PREFIX}/docs" if DOCS_PREFIX else "/docs",
+    redoc_url=f"{DOCS_PREFIX}/redoc" if DOCS_PREFIX else "/redoc",
+    openapi_url=f"{DOCS_PREFIX}/openapi.json" if DOCS_PREFIX else "/openapi.json",
 )
 
 # Configurar CORS
