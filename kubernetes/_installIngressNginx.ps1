@@ -25,7 +25,7 @@ kubectl -n $ns get svc | Out-Host
 
 Write-Host ""
 Write-Host "Si tu Ingress de la app ya existe, en unos segundos deberías ver ADDRESS:"
-Write-Host "- `kubectl -n restaurante get ingress`"
+Write-Host "- `kubectl -n restaurante get ingress` "
 Write-Host "Y luego abrir:"
 Write-Host "- http://localhost:8001/admin/master/console/"
 Write-Host "- http://localhost:8080/api/docs"
