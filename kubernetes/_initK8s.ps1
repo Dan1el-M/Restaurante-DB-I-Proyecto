@@ -9,7 +9,138 @@ function Assert-LastExitCode {
   }
 }
 
+function Read-DotEnvFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path
+  )
+
+  $values = [ordered]@{}
+
+  if (-not (Test-Path -LiteralPath $Path)) {
+    return $values
+  }
+
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed -or $trimmed.StartsWith("#")) {
+      continue
+    }
+
+    $separatorIndex = $trimmed.IndexOf("=")
+    if ($separatorIndex -le 0) {
+      continue
+    }
+
+    $key = $trimmed.Substring(0, $separatorIndex).Trim()
+    $value = $trimmed.Substring($separatorIndex + 1).Trim()
+
+    if (
+      ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+      ($value.StartsWith("'") -and $value.EndsWith("'"))
+    ) {
+      $value = $value.Substring(1, $value.Length - 2)
+    } else {
+      $value = ($value -replace "\s+#.*$", "").Trim()
+    }
+
+    if ($key -match "^[A-Za-z_][A-Za-z0-9_]*$") {
+      $values[$key] = $value
+    }
+  }
+
+  return $values
+}
+
+function Test-SecretEnvKey {
+  param(
+    [Parameter(Mandatory = $true)][string]$Key
+  )
+
+  $secretKeys = @(
+    "POSTGRES_PASSWORD",
+    "POSTGRES_URL",
+    "MONGO_PASSWORD",
+    "KEYCLOAK_ADMIN_USER",
+    "KEYCLOAK_ADMIN_PASSWORD",
+    "KEYCLOAK_CLIENT_SECRET",
+    "SEED_ADMIN_PASSWORD"
+  )
+
+  return $secretKeys -contains $Key -or $Key -match "(PASSWORD|SECRET|TOKEN|PRIVATE_KEY)$"
+}
+
+function Write-DotEnvFile {
+  param(
+    [Parameter(Mandatory = $true)][hashtable]$Values,
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][scriptblock]$Include
+  )
+
+  $lines = New-Object System.Collections.Generic.List[string]
+  foreach ($key in $Values.Keys) {
+    if (& $Include $key $Values[$key]) {
+      $lines.Add(("{0}={1}" -f $key, $Values[$key]))
+    }
+  }
+
+  if ($lines.Count -eq 0) {
+    throw "No hay variables para generar $Path"
+  }
+
+  Set-Content -LiteralPath $Path -Value $lines -Encoding ASCII
+}
+
+function Test-KubectlResourceExists {
+  param(
+    [Parameter(Mandatory = $true)][string[]]$Args
+  )
+
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & kubectl @Args 1>$null 2>$null
+    return $LASTEXITCODE -eq 0
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+}
+
 Write-Host "==> Kubernetes init (namespace: restaurante)"
+
+$rootEnvFile = ".env"
+if (-not (Test-Path -LiteralPath $rootEnvFile)) {
+  Write-Error "Falta .env en la raiz del proyecto. Crealo antes de ejecutar el init."
+}
+
+$envValues = Read-DotEnvFile -Path $rootEnvFile
+$secretEnvFile = "kubernetes/secrets/.env.secret"
+if (Test-Path -LiteralPath $secretEnvFile) {
+  $secretOverrides = Read-DotEnvFile -Path $secretEnvFile
+  foreach ($key in $secretOverrides.Keys) {
+    if ($secretOverrides[$key]) {
+      $envValues[$key] = $secretOverrides[$key]
+    }
+  }
+}
+
+foreach ($key in $envValues.Keys) {
+  [Environment]::SetEnvironmentVariable($key, $envValues[$key], "Process")
+}
+
+$generatedEnvDir = "kubernetes/.generated"
+New-Item -ItemType Directory -Force -Path $generatedEnvDir | Out-Null
+$generatedConfigEnvFile = Join-Path $generatedEnvDir "restaurante-config.env"
+$generatedSecretEnvFile = Join-Path $generatedEnvDir "restaurante-secret.env"
+
+Write-DotEnvFile -Values $envValues -Path $generatedConfigEnvFile -Include {
+  param($key, $value)
+  return -not (Test-SecretEnvKey -Key $key)
+}
+
+Write-DotEnvFile -Values $envValues -Path $generatedSecretEnvFile -Include {
+  param($key, $value)
+  return (Test-SecretEnvKey -Key $key) -and $null -ne $value
+}
 
 Write-Host "==> [0/7] Verificando kubectl context..."
 kubectl config current-context | Out-Host
@@ -29,13 +160,13 @@ Write-Host "==> [3/7] ConfigMaps/Secrets base..."
 kubectl apply -f kubernetes/config/
 Assert-LastExitCode "Fallo aplicando kubernetes/config/"
 
-$secretEnvFile = "kubernetes/secrets/.env.secret"
-if (-not (Test-Path $secretEnvFile)) {
-  Write-Error "Falta $secretEnvFile. Copiá kubernetes/secrets/.env.secret.example a .env.secret y llená los valores."
-}
+Write-Host "==> [3/7] ConfigMap restaurante-config (desde .env)..."
+kubectl -n restaurante create configmap restaurante-config --from-env-file=$generatedConfigEnvFile --dry-run=client -o yaml | kubectl apply -f -
+Assert-LastExitCode "Fallo creando ConfigMap restaurante-config desde .env"
 
-Write-Host "==> [3/7] Secret (desde .env.secret, no versionado)..."
-kubectl -n restaurante create secret generic restaurante-secret --from-env-file=$secretEnvFile --dry-run=client -o yaml | kubectl apply -f -
+Write-Host "==> [3/7] Secret restaurante-secret (desde .env + .env.secret opcional)..."
+kubectl -n restaurante create secret generic restaurante-secret --from-env-file=$generatedSecretEnvFile --dry-run=client -o yaml | kubectl apply -f -
+Assert-LastExitCode "Fallo creando Secret restaurante-secret desde .env"
 
 Write-Host "==> [3.1/7] ConfigMap de Keycloak realm desde archivo (override del placeholder)..."
 kubectl -n restaurante create configmap keycloak-realm --from-file=restaurant-realm.json=backend/app/restaurant-realm.json --dry-run=client -o yaml | kubectl apply -f -
@@ -50,7 +181,7 @@ kubectl -n restaurante create configmap postgres-initdb `
   --from-file=02_seed.sql=dbs\postgres\init.sql `
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Re-ejecutar jobs de init si ya existían (kubectl apply no recrea Jobs completados/fallidos)
+# Re-ejecutar jobs de init si ya existian (kubectl apply no recrea Jobs completados/fallidos)
 Write-Host "==> [4.0/6] Reiniciando Jobs de DB (si existen)..."
 kubectl -n restaurante delete job mongo-cluster-init --ignore-not-found | Out-Host
 # Limpia el Mongo "single node" legacy si existÃ­a (evita conflictos al aplicar el shardeado)
@@ -125,10 +256,10 @@ while ($true) {
   }
 
   if ($failedCount -ge 1) {
-    Write-Host "ERROR: seed-admin falló. Mostrando diagnóstico..."
+    Write-Host "ERROR: seed-admin fallo. Mostrando diagnostico..."
     kubectl -n restaurante get pods -l job-name=seed-admin -o wide | Out-Host
     kubectl -n restaurante logs job/seed-admin --all-containers=true --tail=300 | Out-Host
-    throw "Seed-admin falló"
+    throw "Seed-admin fallo"
   }
 
   $elapsed = (New-TimeSpan -Start $start -End (Get-Date)).TotalSeconds
@@ -138,16 +269,16 @@ while ($true) {
   if ($sinceLastLog -ge 15) {
     Write-Host ("[seed-admin] esperando... {0:N0}s" -f $elapsed)
     try {
-      # Puede fallar mientras el pod está en ContainerCreating; no debe tumbar el init.
+      # Puede fallar mientras el pod esta en ContainerCreating; no debe tumbar el init.
       kubectl -n restaurante logs job/seed-admin --all-containers=true --tail=25 2>$null | Out-Host
     } catch {
-      Write-Host ("[seed-admin] logs no disponibles todavía: {0}" -f $_.Exception.Message)
+      Write-Host ("[seed-admin] logs no disponibles todavia: {0}" -f $_.Exception.Message)
     }
     $lastLogAt = Get-Date
   }
 
   if ($elapsed -ge $seedTimeoutSeconds) {
-    Write-Host "ERROR: seed-admin no completó en ${seedTimeoutSeconds}s. Mostrando diagnóstico..."
+    Write-Host "ERROR: seed-admin no completo en ${seedTimeoutSeconds}s. Mostrando diagnostico..."
     kubectl -n restaurante describe job seed-admin | Out-Host
     kubectl -n restaurante get pods -l job-name=seed-admin -o wide | Out-Host
     kubectl -n restaurante logs job/seed-admin --all-containers=true --tail=300 | Out-Host
@@ -157,9 +288,27 @@ while ($true) {
   Start-Sleep -Seconds 3
 }
 
+$applyIngress = $true
+if ($env:K8S_APPLY_INGRESS) {
+  $applyIngress = $env:K8S_APPLY_INGRESS -notin @("0", "false", "False", "FALSE", "no", "No", "NO")
+}
+
 Write-Host "==> [6/7] Ingress..."
-kubectl apply -f kubernetes/ingress/
-Assert-LastExitCode "Fallo aplicando kubernetes/ingress/"
+if (-not $applyIngress) {
+  Write-Host "==> Ingress omitido por K8S_APPLY_INGRESS=$env:K8S_APPLY_INGRESS"
+} else {
+  $hasIngressAdmissionWebhook = Test-KubectlResourceExists -Args @("get", "validatingwebhookconfiguration", "ingress-nginx-admission")
+  $hasIngressAdmissionService = Test-KubectlResourceExists -Args @("-n", "ingress-nginx", "get", "svc", "ingress-nginx-controller-admission")
+
+  if ($hasIngressAdmissionWebhook -and -not $hasIngressAdmissionService) {
+    Write-Warning "NGINX Ingress esta parcialmente instalado: existe el webhook ingress-nginx-admission, pero falta el service ingress-nginx-controller-admission."
+    Write-Warning "Se omite kubernetes/ingress/ para no detener el init. La API queda accesible por LoadBalancer en http://localhost:8080/api/docs y Search en http://localhost:8081/search/docs."
+    Write-Warning "Para reparar Ingress, ejecuta: powershell -ExecutionPolicy Bypass -File kubernetes/_installIngressNginx.ps1"
+  } else {
+    kubectl apply -f kubernetes/ingress/
+    Assert-LastExitCode "Fallo aplicando kubernetes/ingress/"
+  }
+}
 
 Write-Host ""
 Write-Host "==> Estado (pods/svcs/ingress/jobs):"
@@ -175,7 +324,7 @@ Write-Host "- http://localhost:8081/search/docs"
 Write-Host ""
 Write-Host "NOTAS:"
 Write-Host "- Si ves que Ingress no enruta, instala un Ingress Controller (NGINX Ingress) en tu cluster."
-Write-Host "- URLs esperadas (cuando el Ingress Controller esté activo): http://localhost/api/docs y http://localhost/search/docs"
+Write-Host "- URLs esperadas (cuando el Ingress Controller este activo): http://localhost/api/docs y http://localhost/search/docs"
 
 #comando para levanrlo
 #  powershell -ExecutionPolicy Bypass -File kubernetes/_initK8s.ps1

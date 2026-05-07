@@ -14,10 +14,12 @@ spec:
         - name: seed
           image: restaurante-api:local
           imagePullPolicy: Never
-          command: ["python", "backend/app/scripts/seed_admin.py"]
+          command: ["python", "-u", "backend/app/scripts/seed_admin.py"]
           env:
             - name: SEED_KEYCLOAK_TARGET_REALM
               value: "restaurant-realm"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           envFrom:
             - configMapRef:
                 name: restaurante-config

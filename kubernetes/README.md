@@ -7,13 +7,15 @@ Estos manifiestos levantan el stack en el namespace `restaurante`, usando **Mong
 - Tener un **Ingress Controller** instalado (por ejemplo NGINX Ingress).
 - Tener disponible la imagen de la app en el cluster.
 
-## Secrets (sin passwords alambradas)
-Por política del curso, los passwords no se guardan en YAML versionado.
+## Configuracion con `.env`
+El `.env` de la raiz es la fuente principal de configuracion para el proyecto:
+- Docker Compose lo lee automaticamente.
+- La app Python lo carga con `python-dotenv` cuando corre localmente.
+- `kubernetes/_initK8s.ps1` lo lee y crea/actualiza `restaurante-config` y `restaurante-secret`.
 
-1) Copiar y llenar:
-- `kubernetes/secrets/.env.secret.example` → `kubernetes/secrets/.env.secret`
+Las variables sensibles no quedan quemadas en YAML. El init separa passwords, secrets, tokens y `POSTGRES_URL` en el Secret de Kubernetes.
 
-2) El script `kubernetes/_initK8s.ps1` crea el Secret `restaurante-secret` desde ese archivo.
+Opcionalmente podes crear `kubernetes/secrets/.env.secret` para sobreescribir solo secretos locales sin cambiar `.env`.
 
 ## Imagen de la app (API + Search)
 Los deployments `api` y `search` usan la misma imagen (`restaurante-api:local`) y cambian el comando (`api_main` vs `search_main`).
@@ -50,6 +52,11 @@ Para importar tu realm real (`backend/app/restaurant-realm.json`), lo más limpi
 
 ## Si el Ingress no funciona
 Si `kubectl -n restaurante get ingress` muestra `ADDRESS` vacío, te falta instalar un **Ingress Controller** (por ejemplo NGINX Ingress) o configurar un IngressClass por defecto.
+
+Si el cluster quedo con el webhook `ingress-nginx-admission` pero sin el service `ingress-nginx-controller-admission`, `kubernetes/_initK8s.ps1` omite Ingress y deja funcionando los servicios LoadBalancer. Para reparar Ingress:
+- `powershell -ExecutionPolicy Bypass -File kubernetes/_installIngressNginx.ps1`
+
+Si no queres usar Ingress, podes poner `K8S_APPLY_INGRESS=false` en `.env`.
 
 Como alternativa inmediata podés usar port-forward:
 - API: `kubectl -n restaurante port-forward svc/api 8080:80` → `http://localhost:8080/api/docs`
