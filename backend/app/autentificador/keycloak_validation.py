@@ -68,12 +68,15 @@ def validate_token(token: str):
 		raise Exception("public key not found")
 
 	# validar el token usando la clave pública obtenida del JWKS endpoint de Keycloak
+	# Nota: No validamos audience porque Keycloak no lo incluye en el token por defecto
+	# Se necesaría un Protocol Mapper en Keycloak para que lo incluya
 	payload = jwt.decode(
         token,
         key,
         algorithms=["RS256"],
-        audience=audience,
+        audience=None,
         issuer=issuer,
+        options={"verify_aud": False}
     )
 	return payload
 #nota, podriamos segmentarla más pero si lo hacemos hay que hacer mas archivos para que quede bien
