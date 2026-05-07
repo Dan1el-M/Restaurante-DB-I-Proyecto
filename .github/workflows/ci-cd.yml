@@ -83,8 +83,31 @@ jobs:
         run: docker compose up -d api_direct
 
       - name: Run integration tests
-        run: docker compose run --rm -v "$PWD:/src" -w /src api pytest -q backend/tests/integration
-
+        run: |
+          docker compose run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            -e DATABASE_ENGINE=postgres \
+            -e SERVICE_MODE=all \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres123 \
+            -e POSTGRES_DB=restaurant_postgres_db \
+            -e POSTGRES_URL=postgresql+psycopg2://postgres:postgres123@postgres:5432/restaurant_postgres_db \
+            -e MONGO_USER=mongo \
+            -e MONGO_PASSWORD=mongo123 \
+            -e MONGO_DB=restaurant_mongo_db \
+            -e MONGO_URL=mongodb://mongos:27017/restaurant_mongo_db \
+            -e REDIS_HOST=redis \
+            -e REDIS_PORT=6379 \
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e ELASTICSEARCH_HOST=elasticsearch \
+            -e ELASTICSEARCH_PORT=9200 \
+            -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
+            -e KEYCLOAK_URL=http://keycloak:8080 \
+            -e KEYCLOAK_REALM=restaurant-realm \
+            -e KEYCLOAK_CLIENT_ID=restaurant-client \
+            -e KEYCLOAK_CLIENT_SECRET= \
+            api pytest -q backend/tests/integration
       - name: Stop integration stack
         if: always()
         run: docker compose down -v
