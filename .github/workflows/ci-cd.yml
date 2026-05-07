@@ -53,6 +53,19 @@ jobs:
           POSTGRES_DB=restaurant_postgres_db
           POSTGRES_URL=postgresql+psycopg2://postgres:postgres123@postgres:5432/restaurant_postgres_db
 
+          MONGO_USER=mongo
+          MONGO_PASSWORD=mongo123
+          MONGO_DB=restaurant_mongo_db
+          MONGO_URL=mongodb://mongos:27017/restaurant_mongo_db
+
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_URL=redis://redis:6379/0
+
+          ELASTICSEARCH_HOST=elasticsearch
+          ELASTICSEARCH_PORT=9200
+          ELASTICSEARCH_URL=http://elasticsearch:9200
+
           KEYCLOAK_ADMIN_USER=admin
           KEYCLOAK_ADMIN_PASSWORD=admin
           KEYCLOAK_PORT=8001
@@ -63,6 +76,7 @@ jobs:
 
           API_PORT=8000
           API_HOST=0.0.0.0
+          NGINX_PORT=8080
           EOF
 
       - name: Start integration stack
