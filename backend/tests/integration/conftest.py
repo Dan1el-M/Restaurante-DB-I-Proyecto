@@ -45,7 +45,14 @@ def _replace_url_host(url: str, new_host: str, new_port: int | None = None) -> s
     return urlunparse(parsed._replace(netloc=netloc))
 
 
+def _is_running_in_container() -> bool:
+    return os.path.exists("/.dockerenv") or os.getenv("RUNNING_IN_DOCKER") == "1"
+
+
 def _prefer_localhost_if_needed(env_key: str, fallback_port: int) -> None:
+    if _is_running_in_container():
+        return
+
     raw = os.getenv(env_key)
     if not raw:
         return
