@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-admin
+  namespace: restaurante
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: restaurante-api:local
+          imagePullPolicy: Never
+          command: ["python", "backend/app/scripts/seed_admin.py"]
+          env:
+            - name: SEED_KEYCLOAK_TARGET_REALM
+              value: "restaurant-realm"
+          envFrom:
+            - configMapRef:
+                name: restaurante-config
+            - secretRef:
+                name: restaurante-secret

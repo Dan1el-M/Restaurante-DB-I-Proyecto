@@ -8,7 +8,7 @@ data:
   POSTGRES_USER: "postgres"
   POSTGRES_DB: "restaurant_postgres_db"
   MONGO_DB: "restaurant_mongo_db"
-  MONGO_URL: "mongodb://mongo:27017/restaurant_mongo_db"
+  MONGO_URL: "mongodb://mongos:27017/restaurant_mongo_db"
   KEYCLOAK_URL: "http://keycloak:8080"
   KEYCLOAK_REALM: "restaurant-realm"
   KEYCLOAK_CLIENT_ID: "restaurant-client"
