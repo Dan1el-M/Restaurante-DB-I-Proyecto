@@ -34,7 +34,7 @@ DB_HOST = postgres_url.hostname
 DB_PORT = postgres_url.port
 
 # Este script lo que hace es colocar el admin tanto como en la base de datos como en el keyclock, para que al iniciar el programa, ya esté definido el admin
-def wait_for_keycloak(max_retries=100, delay=4):
+def wait_for_keycloak(max_retries=1000, delay=4):
     url = f"{KEYCLOAK_URL}/realms/master"
 
     for attempt in range(1, max_retries + 1):

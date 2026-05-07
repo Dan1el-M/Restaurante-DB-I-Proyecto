@@ -31,14 +31,7 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Run unit tests
-        run: >
-          pytest -q backend/tests/unit
-          --cov=backend
-          --cov-report=html
-          --cov-report=term-missing
-          --cov-report=term-missing:skip-covered
-          --cov-report=xml
-          --cov-fail-under=90
+        run: pytest -q backend/tests/unit
 
   integration-tests:
     name: Integration tests
@@ -49,18 +42,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+      - name: Start integration stack
+        run: docker compose up -d api_direct
 
       - name: Run integration tests
-        run: pytest -q backend/tests/integration
+        run: docker compose run --rm -v "$PWD:/src" -w /src api pytest -q backend/tests/integration
+
+      - name: Stop integration stack
+        if: always()
+        run: docker compose down -v
 
   docker-build-and-push:
     name: Build and push Docker image

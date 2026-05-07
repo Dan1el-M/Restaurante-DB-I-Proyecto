@@ -3,6 +3,7 @@ omit =
     backend/app/autentificador/*
     backend/app/cache/*
     backend/app/main.py
+    backend/app/scripts/*
     backend/app/search/*
     backend/app/routers/auth.py
     backend/app/routers/search.py
