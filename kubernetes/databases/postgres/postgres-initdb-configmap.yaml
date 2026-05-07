@@ -10,7 +10,12 @@ data:
     role_name       VARCHAR(64) NOT NULL UNIQUE
 
     );
-    
+
+    INSERT INTO roles (role_name) VALUES 
+    ('admin'),
+    ('client')
+    ON CONFLICT (role_name) DO NOTHING;
+
     CREATE TABLE users (
         user_id         SERIAL      PRIMARY KEY,
         user_name       VARCHAR(64) NOT NULL,
