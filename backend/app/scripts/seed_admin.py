@@ -1,5 +1,6 @@
 import os
 import time
+from functools import partial
 from urllib.parse import urlparse
 
 import requests
@@ -10,6 +11,7 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+print = partial(print, flush=True)
 
 
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
@@ -29,13 +31,17 @@ DATABASE_ENGINE = os.getenv("DATABASE_ENGINE").split("#", 1)[0].strip().lower()
 MONGO_URL = os.getenv("MONGO_URL")
 MONGO_DB_NAME = os.getenv("MONGO_DB")
 
+SEED_WAIT_RETRIES = int(os.getenv("SEED_WAIT_RETRIES", "60"))
+SEED_WAIT_DELAY_SECONDS = int(os.getenv("SEED_WAIT_DELAY_SECONDS", "3"))
+
 postgres_url = urlparse(POSTGRES_URL.replace("postgresql+psycopg2://", "postgresql://", 1))
 DB_HOST = postgres_url.hostname
 DB_PORT = postgres_url.port
 
 # Este script lo que hace es colocar el admin tanto como en la base de datos como en el keyclock, para que al iniciar el programa, ya esté definido el admin
-def wait_for_keycloak(max_retries=1000, delay=4):
+def wait_for_keycloak(max_retries=SEED_WAIT_RETRIES, delay=SEED_WAIT_DELAY_SECONDS):
     url = f"{KEYCLOAK_URL}/realms/master"
+    last_error = None
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -43,16 +49,19 @@ def wait_for_keycloak(max_retries=1000, delay=4):
             if response.status_code == 200:
                 print("Keycloak listo.")
                 return
-        except requests.exceptions.RequestException:
-            pass
+            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+        except requests.exceptions.RequestException as exc:
+            last_error = str(exc)
 
-        print(f"Esperando Keycloak... intento {attempt}")
+        print(f"Esperando Keycloak... intento {attempt}/{max_retries}. Ultimo estado: {last_error}")
         time.sleep(delay)
 
-    raise Exception("Keycloak no estuvo listo a tiempo")
+    raise Exception(f"Keycloak no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
 
-def wait_for_postgres(max_retries=30, delay=3):
+def wait_for_postgres(max_retries=30, delay=SEED_WAIT_DELAY_SECONDS):
+    last_error = None
+
     for attempt in range(1, max_retries + 1):
         try:
             conn = psycopg2.connect(
@@ -65,15 +74,17 @@ def wait_for_postgres(max_retries=30, delay=3):
             conn.close()
             print("PostgreSQL listo.")
             return
-        except OperationalError:
-            print(f"Esperando PostgreSQL... intento {attempt}")
+        except OperationalError as exc:
+            last_error = str(exc)
+            print(f"Esperando PostgreSQL... intento {attempt}/{max_retries}. Ultimo estado: {last_error}")
             time.sleep(delay)
 
-    raise Exception("PostgreSQL no estuvo listo a tiempo")
+    raise Exception(f"PostgreSQL no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
 
-def wait_for_mongo(max_retries=30, delay=3):
+def wait_for_mongo(max_retries=30, delay=SEED_WAIT_DELAY_SECONDS):
     client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=5000)
+    last_error = None
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -81,18 +92,20 @@ def wait_for_mongo(max_retries=30, delay=3):
             print("MongoDB listo.")
             client.close()
             return
-        except Exception:
-            print(f"Esperando MongoDB... intento {attempt}")
+        except Exception as exc:
+            last_error = str(exc)
+            print(f"Esperando MongoDB... intento {attempt}/{max_retries}. Ultimo estado: {last_error}")
             time.sleep(delay)
 
     client.close()
-    raise Exception("MongoDB no estuvo listo a tiempo")
+    raise Exception(f"MongoDB no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
 
 
 
-def wait_for_realm(max_retries=60, delay=3):
+def wait_for_realm(max_retries=SEED_WAIT_RETRIES, delay=SEED_WAIT_DELAY_SECONDS):
     url = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}"
+    last_error = None
 
     for attempt in range(1, max_retries + 1):
         try:
@@ -100,13 +113,14 @@ def wait_for_realm(max_retries=60, delay=3):
             if response.status_code == 200:
                 print(f"Realm '{KEYCLOAK_REALM}' listo.")
                 return
-        except requests.exceptions.RequestException:
-            pass
+            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+        except requests.exceptions.RequestException as exc:
+            last_error = str(exc)
 
-        print(f"Esperando realm {KEYCLOAK_REALM}... intento {attempt}")
+        print(f"Esperando realm {KEYCLOAK_REALM}... intento {attempt}/{max_retries}. Ultimo estado: {last_error}")
         time.sleep(delay)
 
-    raise Exception(f"Realm '{KEYCLOAK_REALM}' no estuvo listo a tiempo")
+    raise Exception(f"Realm '{KEYCLOAK_REALM}' no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
 def get_admin_token():
     url = f"{KEYCLOAK_URL}/realms/master/protocol/openid-connect/token"
