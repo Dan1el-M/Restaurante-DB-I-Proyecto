@@ -42,6 +42,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create .env file for CI
+        run: |
+          cat > .env <<EOF
+          DATABASE_ENGINE=postgres
+          SERVICE_MODE=all
+
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres123
+          POSTGRES_DB=restaurant_postgres_db
+          POSTGRES_URL=postgresql+psycopg2://postgres:postgres123@postgres:5432/restaurant_postgres_db
+
+          KEYCLOAK_ADMIN_USER=admin
+          KEYCLOAK_ADMIN_PASSWORD=admin
+          KEYCLOAK_PORT=8001
+          KEYCLOAK_URL=http://keycloak:8080
+          KEYCLOAK_REALM=restaurant-realm
+          KEYCLOAK_CLIENT_ID=restaurant-client
+          KEYCLOAK_CLIENT_SECRET=
+
+          API_PORT=8000
+          API_HOST=0.0.0.0
+          EOF
+
       - name: Start integration stack
         run: docker compose up -d api_direct
 
