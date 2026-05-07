@@ -16,7 +16,7 @@ from backend.app.search.search_service import (
     search_by_category,
 )
 
-router = APIRouter(prefix="/search", tags=["Search"])
+router = APIRouter(tags=["Search"])
 SEARCH_CACHE_PREFIX = "search:products"
 
 
