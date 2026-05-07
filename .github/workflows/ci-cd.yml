@@ -42,12 +42,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create .env file for CI
+      - name: Create CI env file
         run: |
-          cat > .env <<EOF
-          DATABASE_ENGINE=postgres
+          cat > .env <<'EOF'
+          DATABASE_ENGINE=mongo
           SERVICE_MODE=all
-
           POSTGRES_USER=postgres
           POSTGRES_PASSWORD=postgres123
           POSTGRES_DB=restaurant_postgres_db
@@ -56,57 +55,37 @@ jobs:
           MONGO_PASSWORD=mongo123
           MONGO_DB=restaurant_mongo_db
           MONGO_URL=mongodb://mongos:27017/restaurant_mongo_db
-
-          REDIS_HOST=redis
-          REDIS_PORT=6379
-          REDIS_URL=redis://redis:6379/0
-
-          ELASTICSEARCH_HOST=elasticsearch
-          ELASTICSEARCH_PORT=9200
-          ELASTICSEARCH_URL=http://elasticsearch:9200
-
-          KEYCLOAK_ADMIN_USER=admin
-          KEYCLOAK_ADMIN_PASSWORD=admin
-          KEYCLOAK_PORT=8001
+          API_PORT=8000
+          API_HOST=0.0.0.0
+          NGINX_PORT=8080
           KEYCLOAK_URL=http://keycloak:8080
           KEYCLOAK_REALM=restaurant-realm
           KEYCLOAK_CLIENT_ID=restaurant-client
           KEYCLOAK_CLIENT_SECRET=
-
-          API_PORT=8000
-          API_HOST=0.0.0.0
-          NGINX_PORT=8080
+          KEYCLOAK_ADMIN_USER=admin
+          KEYCLOAK_ADMIN_PASSWORD=admin
+          KEYCLOAK_PORT=8001
+          KEYCLOAK_TOKEN_AUDIENCE=restaurant-client
+          SEED_ADMIN_USERNAME=admin
+          SEED_ADMIN_EMAIL=admin@example.com
+          SEED_ADMIN_PASSWORD=admin
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_DB=0
+          REDIS_URL=redis://redis:6379/0
+          CACHE_TTL_SECONDS=60
+          SEARCH_CACHE_TTL_SECONDS=60
+          SEARCH_PORT=8002
+          ELASTICSEARCH_URL=http://elasticsearch:9200
+          API_URL=http://localhost:8080/api
           EOF
 
       - name: Start integration stack
         run: docker compose up -d api_direct
 
       - name: Run integration tests
-        run: |
-          docker compose run --rm \
-            -v "$PWD:/src" \
-            -w /src \
-            -e DATABASE_ENGINE=postgres \
-            -e SERVICE_MODE=all \
-            -e POSTGRES_USER=postgres \
-            -e POSTGRES_PASSWORD=postgres123 \
-            -e POSTGRES_DB=restaurant_postgres_db \
-            -e POSTGRES_URL=postgresql+psycopg2://postgres:postgres123@postgres:5432/restaurant_postgres_db \
-            -e MONGO_USER=mongo \
-            -e MONGO_PASSWORD=mongo123 \
-            -e MONGO_DB=restaurant_mongo_db \
-            -e MONGO_URL=mongodb://mongos:27017/restaurant_mongo_db \
-            -e REDIS_HOST=redis \
-            -e REDIS_PORT=6379 \
-            -e REDIS_URL=redis://redis:6379/0 \
-            -e ELASTICSEARCH_HOST=elasticsearch \
-            -e ELASTICSEARCH_PORT=9200 \
-            -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
-            -e KEYCLOAK_URL=http://keycloak:8080 \
-            -e KEYCLOAK_REALM=restaurant-realm \
-            -e KEYCLOAK_CLIENT_ID=restaurant-client \
-            -e KEYCLOAK_CLIENT_SECRET= \
-            api pytest -q backend/tests/integration
+        run: docker compose run --rm -v "$PWD:/src" -w /src api pytest -q backend/tests/integration
+
       - name: Stop integration stack
         if: always()
         run: docker compose down -v
@@ -159,4 +138,3 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags || steps.meta-local.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels || steps.meta-local.outputs.labels }}
-
