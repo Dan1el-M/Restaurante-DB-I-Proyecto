@@ -12,5 +12,10 @@ data:
   KEYCLOAK_URL: "http://keycloak:8080"
   KEYCLOAK_REALM: "restaurant-realm"
   KEYCLOAK_CLIENT_ID: "restaurant-client"
-
-  #Define variables de entorno públicas que todos los pods
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_URL: "redis://redis:6379/0"
+  CACHE_TTL_SECONDS: "60"
+  SEARCH_CACHE_TTL_SECONDS: "60"
+  ELASTICSEARCH_URL: "http://elasticsearch:9200"

@@ -29,7 +29,6 @@ def _is_tcp_reachable(host: str | None, port: int | None, timeout: float = 0.5) 
     except OSError:
         return False
 
-
 def _replace_url_host(url: str, new_host: str, new_port: int | None = None) -> str:
     parsed = urlparse(url)
     auth = ""
@@ -43,7 +42,11 @@ def _replace_url_host(url: str, new_host: str, new_port: int | None = None) -> s
     port = f":{port_value}" if port_value else ""
     netloc = f"{auth}{new_host}{port}"
     return urlunparse(parsed._replace(netloc=netloc))
-
+    # ↑ parsed._replace(netloc=...) SÍ preserva el path, query, fragment
+    # El bug debe estar en otro lado — verifica qué imprime MONGO_URL después del replace
+    prefer_localhost_if_needed("MONGO_URL", 27017)
+    print("DEBUG MONGO_URL:", os.environ.get("MONGO_URL"))
+    print("DEBUG MONGO_DB:", os.environ.get("MONGO_DB"))
 
 def _is_running_in_container() -> bool:
     return os.path.exists("/.dockerenv") or os.getenv("RUNNING_IN_DOCKER") == "1"

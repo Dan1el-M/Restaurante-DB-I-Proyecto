@@ -5,23 +5,20 @@ kind: Ingress
 metadata:
   name: restaurante-ingress
   namespace: restaurante
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - http:
         paths:
-          - path: /api(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /api
+            pathType: Prefix
             backend:
               service:
                 name: api
                 port:
                   number: 80
-          - path: /search(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /search
+            pathType: Prefix
             backend:
               service:
                 name: search

@@ -157,9 +157,21 @@ def get_or_create_keycloak_user(token):
         timeout=10,
         #que el temporary sea false para que no pida cambiar la contraseña al primer login
     )
+    # Algunas versiones/configuraciones de Keycloak responden 400 cuando se usa
+    # el filtro `username`. En ese caso, caemos a `search`.
+    if search_response.status_code == 400:
+        search_response = requests.get(
+            users_url,
+            headers=headers,
+            params={"search": ADMIN_USERNAME},
+            timeout=10,
+        )
+
     search_response.raise_for_status()
 
-    users = search_response.json()
+    users = search_response.json() or []
+    # Cuando usamos `search`, Keycloak puede devolver coincidencias parciales.
+    users = [u for u in users if u.get("username") == ADMIN_USERNAME]
 
     user_payload = {
         "username": ADMIN_USERNAME,
@@ -295,8 +307,24 @@ def insert_admin_in_mongo(keycloak_id):
             role = {"role_id": 1, "role_name": "admin"}
             db.roles.update_one({"role_id": 1}, {"$setOnInsert": role}, upsert=True)
 
-        existing_user = db.users.find_one({"keycloak_id": keycloak_id})
-        if not existing_user:
+        # Idempotencia: el usuario admin puede existir con un keycloak_id distinto
+        # (por ejemplo, si se recreó en Keycloak). Como 'user_name' es único,
+        # preferimos buscar/actualizar por user_name para evitar DuplicateKeyError.
+        existing_user = db.users.find_one({"user_name": ADMIN_USERNAME}) or db.users.find_one(
+            {"keycloak_id": keycloak_id}
+        )
+        if existing_user:
+            db.users.update_one(
+                {"_id": existing_user["_id"]},
+                {
+                    "$set": {
+                        "user_name": ADMIN_USERNAME,
+                        "keycloak_id": keycloak_id,
+                        "role_id": role["role_id"],
+                    }
+                },
+            )
+        else:
             counter = db.counters.find_one_and_update(
                 {"_id": "users"},
                 {"$inc": {"seq": 1}},

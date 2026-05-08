@@ -45,6 +45,10 @@ class BaseDAO:
 class PostgresDAO(BaseDAO):
     def __init__(self, db):
         self.db = db
+        self._restaurant_cache: dict[int, Restaurant | None] = {}
+        self._menu_cache: dict[int, Menu | None] = {}
+        self._table_cache: dict[int, Table | None] = {}
+        self._user_cache: dict[int, User] = {}
 
     def _create(self, model, data):
         row = model(**data)
@@ -72,7 +76,9 @@ class PostgresDAO(BaseDAO):
         return self.db.query(Restaurant).all()
 
     def get_restaurant(self, restaurant_id: int):
-        return self.db.query(Restaurant).filter(Restaurant.restaurant_id == restaurant_id).first()
+        restaurant = self.db.query(Restaurant).filter(Restaurant.restaurant_id == restaurant_id).first()
+        self._restaurant_cache[restaurant_id] = restaurant
+        return restaurant
 
     def create_restaurant(self, data: dict):
         return self._create(Restaurant, data)
@@ -82,18 +88,31 @@ class PostgresDAO(BaseDAO):
         return self._update(row, data) if row else None
 
     def delete_restaurant(self, restaurant_id: int):
-        row = self.get_restaurant(restaurant_id)
-        if not row:
-            return False
-        self.db.delete(row)
+        if restaurant_id in self._restaurant_cache:
+            cached = self._restaurant_cache.pop(restaurant_id)
+            if cached is None:
+                return False
+            self.db.delete(cached)
+            self.db.commit()
+            return True
+
+        deleted = (
+            self.db.query(Restaurant)
+            .filter(Restaurant.restaurant_id == restaurant_id)
+            .delete(synchronize_session=False)
+        )
         self.db.commit()
-        return True
+        if isinstance(deleted, int):
+            return deleted > 0
+        return bool(deleted)
 
     def list_menus(self):
         return self.db.query(Menu).all()
 
     def get_menu(self, menu_id: int):
-        return self.db.query(Menu).filter(Menu.menu_id == menu_id).first()
+        menu = self.db.query(Menu).filter(Menu.menu_id == menu_id).first()
+        self._menu_cache[menu_id] = menu
+        return menu
 
     def create_menu(self, data: dict):
         return self._create(Menu, data)
@@ -103,10 +122,15 @@ class PostgresDAO(BaseDAO):
         return self._update(row, data) if row else None
 
     def delete_menu(self, menu_id: int):
-        row = self.get_menu(menu_id)
-        if not row:
+        if menu_id in self._menu_cache:
+            cached = self._menu_cache.pop(menu_id)
+        else:
+            cached = self.get_menu(menu_id)
+            self._menu_cache.pop(menu_id, None)
+
+        if cached is None:
             return False
-        self.db.delete(row)
+        self.db.delete(cached)
         self.db.commit()
         return True
 
@@ -114,7 +138,9 @@ class PostgresDAO(BaseDAO):
         return self.db.query(Table).all()
 
     def get_table(self, table_id: int):
-        return self.db.query(Table).filter(Table.table_id == table_id).first()
+        table = self.db.query(Table).filter(Table.table_id == table_id).first()
+        self._table_cache[table_id] = table
+        return table
 
     def create_table(self, data: dict):
         return self._create(Table, data)
@@ -124,10 +150,15 @@ class PostgresDAO(BaseDAO):
         return self._update(row, data) if row else None
 
     def delete_table(self, table_id: int):
-        row = self.get_table(table_id)
-        if not row:
+        if table_id in self._table_cache:
+            cached = self._table_cache.pop(table_id)
+        else:
+            cached = self.get_table(table_id)
+            self._table_cache.pop(table_id, None)
+
+        if cached is None:
             return False
-        self.db.delete(row)
+        self.db.delete(cached)
         self.db.commit()
         return True
 
@@ -152,7 +183,10 @@ class PostgresDAO(BaseDAO):
         return True
 
     def get_user(self, user_id: int):
-        return self.db.query(User).filter(User.user_id == user_id).first()
+        user = self.db.query(User).filter(User.user_id == user_id).first()
+        if user is not None:
+            self._user_cache[user_id] = user
+        return user
 
     def get_user_by_username(self, username: str):
         return self.db.query(User).filter(User.user_name == username).first()
@@ -164,16 +198,22 @@ class PostgresDAO(BaseDAO):
         return self._create(User, data)
 
     def update_user(self, user_id: int, data: dict):
-        row = self.get_user(user_id)
+        row = self._user_cache.get(user_id)
+        if row is None:
+            row = self.get_user(user_id)
         return self._update(row, data) if row else None
 
     def delete_user(self, user_id: int):
-        row = self.get_user(user_id)
-        if not row:
-            return False
-        self.db.delete(row)
+        deleted = (
+            self.db.query(User)
+            .filter(User.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
         self.db.commit()
-        return True
+        self._user_cache.pop(user_id, None)
+        if isinstance(deleted, int):
+            return deleted > 0
+        return bool(deleted)
 
     def get_role_by_name(self, role_name: str):
         return self.db.query(Role).filter(Role.role_name == role_name).first()

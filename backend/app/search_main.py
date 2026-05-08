@@ -5,11 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routers import debug, search
 
+ROOT_PATH = os.getenv("ROOT_PATH", "").rstrip("/")
+
 app = FastAPI(
     title="Restaurante Search",
     description="Microservicio de búsqueda",
     version="1.0.0",
-    root_path=os.getenv("ROOT_PATH", ""),
+    root_path=ROOT_PATH,
+    root_path_in_servers=False,
+    servers=[{"url": ROOT_PATH}] if ROOT_PATH else None,
 )
 
 app.add_middleware(

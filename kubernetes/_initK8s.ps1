@@ -113,7 +113,7 @@ if (-not (Test-Path -LiteralPath $rootEnvFile)) {
 }
 
 $envValues = Read-DotEnvFile -Path $rootEnvFile
-$secretEnvFile = "kubernetes/secrets/.env.secret"
+$secretEnvFile = ".env"
 if (Test-Path -LiteralPath $secretEnvFile) {
   $secretOverrides = Read-DotEnvFile -Path $secretEnvFile
   foreach ($key in $secretOverrides.Keys) {

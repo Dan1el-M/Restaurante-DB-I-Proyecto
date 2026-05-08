@@ -278,13 +278,13 @@ def test_menus_tables_orders_reservations_and_search_integration(
     )
     assert second_cancel.status_code == 404
 
-    reindex_response = search_client.post("/search/reindex", headers=admin_headers)
+    reindex_response = search_client.post("/reindex", headers=admin_headers)
     assert reindex_response.status_code == 200, reindex_response.text
     assert reindex_response.json()["total"] >= 1
     assert elasticsearch_client.indices.exists(index=INDEX_NAME)
 
     search_response = search_client.get(
-        "/search/products",
+        "/products",
         params={"q": customer["username"]},
         headers=customer["headers"],
     )
@@ -293,7 +293,7 @@ def test_menus_tables_orders_reservations_and_search_integration(
     assert redis_cache.get(f"search:products:text:{customer['username'].lower()}") is not None
 
     category_response = search_client.get(
-        "/search/products/category/Pasta fresca",
+        "/products/category/Pasta fresca",
         headers=customer["headers"],
     )
     assert category_response.status_code == 200
