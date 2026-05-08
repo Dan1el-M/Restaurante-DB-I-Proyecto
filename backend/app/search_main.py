@@ -25,5 +25,5 @@ def health_check():
     return {"status": "ok"}
 
 
-app.include_router(search.router)
+app.include_router(search.router, prefix="/search") #esto despues me puede fallar en e search
 app.include_router(debug.router)
