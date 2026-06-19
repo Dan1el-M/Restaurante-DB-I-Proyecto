@@ -8,6 +8,7 @@ class User(Base):
     # Columnas
     user_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_name = Column(String(64), nullable=False)
+    keycloak_id = Column(String(255), nullable=True, unique=True, index=True)  # UUID de Keycloak
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
     
     # Relaciones

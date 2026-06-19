@@ -1,0 +1,10 @@
+#con este archivo k8s le pasa el archivo al relam de keycloak
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: restaurante
+data:
+  restaurant-realm.json: |
+    {}
+    

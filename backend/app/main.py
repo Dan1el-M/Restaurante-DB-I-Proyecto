@@ -4,29 +4,36 @@ Servidor API para gestión de restaurantes con Keycloak
 Estructura:
 - Rutas públicas (ping, health)
 - Rutas de autenticación (registro, login)
-- Rutas protegidas por rol (client, admin)
+- Rutas protegidas por rol dentro de cada router
 """
 
 import os
-from fastapi import Depends, FastAPI, APIRouter
+import uvicorn
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Importar middleware de autorización
-from .autentificador.keycloak_dependencies import get_current_user, require_role
-
 # Importar routers
-from .routers import restaurants
+from backend.app.routers import auth, menus, orders, reservations, restaurants, search, tables, users
 
 # ========== CREAR APLICACIÓN ==========
+
+API_PREFIX = "/api"
+SEARCH_PREFIX = "/search"
+SERVICE_MODE = os.getenv("SERVICE_MODE", "api").lower()
+ROOT_PATH = os.getenv("ROOT_PATH", "").rstrip("/")
+DOCS_PREFIX = ROOT_PATH if ROOT_PATH else (SEARCH_PREFIX if SERVICE_MODE == "search" else "")
 
 app = FastAPI(
     title="Restaurante API",
     description="API para gestión de restaurantes, reservaciones y menús",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=f"{DOCS_PREFIX}/docs" if DOCS_PREFIX else "/docs",
+    redoc_url=f"{DOCS_PREFIX}/redoc" if DOCS_PREFIX else "/redoc",
+    openapi_url=f"{DOCS_PREFIX}/openapi.json" if DOCS_PREFIX else "/openapi.json",
 )
 
 # Configurar CORS
@@ -40,59 +47,64 @@ app.add_middleware(
 
 # ========== RUTAS PÚBLICAS ==========
 
-@app.get("/ping")
+# Estas podemos eliminarlas después; solo las dejo para pruebas de conexión
+
+api_public_router = APIRouter(prefix=API_PREFIX, tags=["Sistema"])
+
+@api_public_router.get("/ping")
 def ping():
     """Health check básico"""
     return {"message": "pong"}
 
-@app.get("/")
-def root():
-    """Ruta raíz"""
-    return {"message": "API funcionando", "version": "1.0.0"}
 
-@app.get("/health")
-def health_check():
-    """Health check para monitoreo"""
-    return {"status": "ok"}
+if SERVICE_MODE in ("api", "all"):
+    app.include_router(api_public_router)
 
-# ========== RUTAS DE AUTENTICACIÓN ==========
+    # ========== RUTAS DE AUTENTICACIÓN ==========
 
-@app.post("/auth/register")
-def register():
-    """Registro de usuarios"""
-    # TODO: Implementar registro
-    pass
-
-@app.post("/auth/login")
-def login():
-    """Login de usuarios"""
-    # TODO: Implementar login
-    pass
-
-# ========== ROUTERS PROTEGIDOS POR ROL ==========
-
-# --------- CLIENT ROUTES ---------
-# Rutas que requieren rol 'client'
-client_routes = APIRouter(dependencies=[Depends(require_role("client"))])
-
-client_routes.include_router(restaurants.router, tags=["Client - Restaurants"])
-
-app.include_router(client_routes)
-
-# --------- ADMIN ROUTES ---------
-# Rutas que requieren rol 'admin'
-admin_routes = APIRouter(dependencies=[Depends(require_role("admin"))])
+    # Rutas públicas de autenticación: /api/auth/register y /api/auth/login
+    app.include_router(auth.router, prefix=API_PREFIX)
 
 
-app.include_router(admin_routes)
+    # ========== ROUTERS PROTEGIDOS / FUNCIONALES ==========
+
+    # Usuarios: cualquier endpoint de /api/users requiere token válido
+    app.include_router(users.router, prefix=API_PREFIX)
+
+    # Restaurantes: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de restaurants.py
+    app.include_router(restaurants.router, prefix=API_PREFIX)
+
+    # Menús: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de menus.py
+    app.include_router(menus.router, prefix=API_PREFIX)
+
+    # Reservaciones: todos los endpoints requieren token válido (cliente mínimo)
+    # - No hay restricción de rol, solo requiere estar autenticado
+    app.include_router(reservations.router, prefix=API_PREFIX)
+
+    # Pedidos: todos los endpoints requieren token válido (cliente mínimo)
+    # - No hay restricción de rol, solo requiere estar autenticado
+    app.include_router(orders.router, prefix=API_PREFIX)
+
+    # Mesas: todos los endpoints requieren token (cliente mínimo)
+    # - POST, PUT, DELETE requieren rol admin dentro de tables.py
+    app.include_router(tables.router, prefix=API_PREFIX)
+
+if SERVICE_MODE in ("search", "all"):
+    # busqueda: todos los endpoints requieren token (cliente mínimo)
+    # GET /search/products?q=texto — Busqueda textual en productos.
+    # GET /search/products/category/:categoria — Filtrar por categoria.
+    # POST /search/reindex — Reindexar productos manualmente.
+    app.include_router(search.router)
 
 # ========== PUERTO ==========
 
 if __name__ == "__main__":
-    import uvicorn
     
-    port = int(os.getenv("BACKEND_PORT", 8000))
-    host = os.getenv("BACKEND_HOST", "0.0.0.0")
+    # Puerto y host configurables por variables de entorno
+    port = int(os.getenv("API_PORT", "8000"))
+    host = os.getenv("API_HOST", "0.0.0.0")
     
     print(f"🚀 Servidor corriendo en {host}:{port}")
     

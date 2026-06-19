@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: restaurante-config
+  namespace: restaurante
+data:
+  DATABASE_ENGINE: "mongo"
+  POSTGRES_USER: "postgres"
+  POSTGRES_DB: "restaurant_postgres_db"
+  MONGO_DB: "restaurant_mongo_db"
+  MONGO_URL: "mongodb://mongos:27017/restaurant_mongo_db"
+  KEYCLOAK_URL: "http://keycloak:8080"
+  KEYCLOAK_REALM: "restaurant-realm"
+  KEYCLOAK_CLIENT_ID: "restaurant-client"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_URL: "redis://redis:6379/0"
+  CACHE_TTL_SECONDS: "60"
+  SEARCH_CACHE_TTL_SECONDS: "60"
+  ELASTICSEARCH_URL: "http://elasticsearch:9200"

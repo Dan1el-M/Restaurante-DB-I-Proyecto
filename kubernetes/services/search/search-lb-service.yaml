@@ -1,0 +1,16 @@
+#Expone búsqueda al exterior con Load Balancer
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-lb
+  namespace: restaurante
+spec:
+  type: LoadBalancer
+  selector:
+    app: search
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 80
+

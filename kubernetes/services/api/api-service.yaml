@@ -1,0 +1,14 @@
+#Expone el API internamente a otros pods
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: restaurante
+spec:
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

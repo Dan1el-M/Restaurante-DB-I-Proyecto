@@ -1,0 +1,14 @@
+#Expone PostgreSQL a otros pods en el cluster
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: restaurante
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

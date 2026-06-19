@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from ..database import Base
 
@@ -8,6 +8,8 @@ class Menu(Base):
     # Columnas
     menu_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     dish_name = Column(String(64), nullable=False)
+    category = Column(String(64), nullable=False, default="general")
+    description = Column(Text, nullable=True)
     price = Column(Numeric(10, 2), nullable=False)
     restaurant_id = Column(Integer, ForeignKey("restaurants.restaurant_id"), nullable=False)
     
@@ -22,4 +24,4 @@ class Menu(Base):
     )
     
     def __repr__(self):
-        return f"<Menu(menu_id={self.menu_id}, dish_name='{self.dish_name}', price={self.price})>"
+        return f"<Menu(menu_id={self.menu_id}, dish_name='{self.dish_name}', category='{self.category}', price={self.price})>"

@@ -1,55 +1,405 @@
-version: '3.8'
+x-app-env: &app-env
+  DATABASE_ENGINE: ${DATABASE_ENGINE:-mongo}
+  SERVICE_MODE: ${SERVICE_MODE:-all}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+  POSTGRES_DB: ${POSTGRES_DB:-restaurant_postgres_db}
+  POSTGRES_URL: ${POSTGRES_URL:-postgresql+psycopg2://postgres:postgres123@postgres:5432/restaurant_postgres_db}
+  MONGO_USER: ${MONGO_USER:-mongo}
+  MONGO_PASSWORD: ${MONGO_PASSWORD:-mongo123}
+  MONGO_DB: ${MONGO_DB:-restaurant_mongo_db}
+  MONGO_URL: ${MONGO_URL:-mongodb://mongos:27017/restaurant_mongo_db}
+  API_HOST: ${API_HOST:-0.0.0.0}
+  KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+  KEYCLOAK_REALM: ${KEYCLOAK_REALM:-restaurant-realm}
+  KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-restaurant-client}
+  KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+  KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
+  KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+  KEYCLOAK_TOKEN_AUDIENCE: ${KEYCLOAK_TOKEN_AUDIENCE:-restaurant-client}
+  SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+  SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@example.com}
+  SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin}
+  REDIS_HOST: ${REDIS_HOST:-redis}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_DB: ${REDIS_DB:-0}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-60}
+  SEARCH_CACHE_TTL_SECONDS: ${SEARCH_CACHE_TTL_SECONDS:-60}
+  SEARCH_PORT: ${SEARCH_PORT:-8002}
+  ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
 
 services:
   postgres:
     image: postgres:15.6
-    container_name: restaurant-db
+    container_name: restaurant-postgres
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_postgres_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./dbs:/docker-entrypoint-initdb.d
+      - ./dbs/postgres:/docker-entrypoint-initdb.d
     networks:
       - restaurant-network
+
+#replica 1 de sharding
+  cfg1:
+    image: mongo:7.0
+    container_name: restaurant-cfg1
+    command: ["mongod", "--configsvr", "--replSet", "cfgReplSet", "--port", "27019", "--bind_ip_all"]
+    volumes:
+      - cfg1_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+#replica 2 de sharding
+  cfg2:
+    image: mongo:7.0
+    container_name: restaurant-cfg2
+    command: ["mongod", "--configsvr", "--replSet", "cfgReplSet", "--port", "27019", "--bind_ip_all"]
+    volumes:
+      - cfg2_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+#replica 3 de sharding
+  cfg3:
+    image: mongo:7.0
+    container_name: restaurant-cfg3
+    command: ["mongod", "--configsvr", "--replSet", "cfgReplSet", "--port", "27019", "--bind_ip_all"]
+    volumes:
+      - cfg3_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+#shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
+  shard1a:
+    image: mongo:7.0
+    container_name: restaurant-shard1a
+    command: ["mongod", "--shardsvr", "--replSet", "shard1ReplSet", "--port", "27018", "--bind_ip_all"]
+    volumes:
+      - shard1a_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+#shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
+  shard1b:
+    image: mongo:7.0
+    container_name: restaurant-shard1b
+    command: ["mongod", "--shardsvr", "--replSet", "shard1ReplSet", "--port", "27018", "--bind_ip_all"]
+    volumes:
+      - shard1b_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+#shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
+  shard1c:
+    image: mongo:7.0
+    container_name: restaurant-shard1c
+    command: ["mongod", "--shardsvr", "--replSet", "shard1ReplSet", "--port", "27018", "--bind_ip_all"]
+    volumes:
+      - shard1c_data:/data/db
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 10s
+
+  mongos:
+    image: mongo:7.0
+    container_name: restaurant-mongos
+    command:
+      [
+        "mongos",
+        "--port",
+        "27017",
+        "--bind_ip_all",
+        "--configdb",
+        "cfgReplSet/cfg1:27019,cfg2:27019,cfg3:27019"
+      ]
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    depends_on:
+      mongo-config-setup:
+        condition: service_completed_successfully
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27017", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 15s
+
+# Inicializa cfgReplSet antes de levantar mongos (si no, mongos falla al arrancar).
+  mongo-config-setup:
+    image: mongo:7.0
+    container_name: restaurant-mongo-config-setup
+    depends_on:
+      cfg1:
+        condition: service_healthy
+      cfg2:
+        condition: service_healthy
+      cfg3:
+        condition: service_healthy
+    volumes:
+      - ./dbs/mongo:/scripts:ro
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        echo "==> Initiating cfgReplSet..."
+        mongosh --host cfg1 --port 27019 --quiet /scripts/init-configrs.js
+        echo "==> cfgReplSet ready."
+    networks:
+      - restaurant-network
+    restart: "no"
+
+# Inicializa shard1ReplSet antes de hacer addShard (mongos/cluster).
+  mongo-shard-setup:
+    image: mongo:7.0
+    container_name: restaurant-mongo-shard-setup
+    depends_on:
+      shard1a:
+        condition: service_healthy
+      shard1b:
+        condition: service_healthy
+      shard1c:
+        condition: service_healthy
+    volumes:
+      - ./dbs/mongo:/scripts:ro
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        echo "==> Initiating shard1ReplSet..."
+        mongosh --host shard1a --port 27018 --quiet /scripts/init-shardrs.js
+        echo "==> shard1ReplSet ready."
+    networks:
+      - restaurant-network
+    restart: "no"
+
+# se utiliza para quw todo este listo
+  mongo-setup:
+    image: mongo:7.0
+    container_name: restaurant-mongo-setup
+    depends_on:
+      mongo-config-setup:
+        condition: service_completed_successfully
+      mongo-shard-setup:
+        condition: service_completed_successfully
+      mongos:
+        condition: service_healthy
+    volumes:
+      - ./dbs/mongo:/scripts:ro
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+
+        echo "==> [1/3] Configuring sharded cluster (addShard, enableSharding)..."
+        mongosh --host mongos --port 27017 --quiet /scripts/init-cluster.js
+
+        echo "==> [2/3] Initializing schema..."
+        mongosh --host mongos --port 27017 --quiet /scripts/init-mongo.js
+
+        echo "==> [3/3] Sharding collections..."
+        mongosh --host mongos --port 27017 --quiet /scripts/shard-collections.js
+
+        echo "==> MongoDB setup complete."
+    networks:
+      - restaurant-network
+    restart: "no"
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: keycloak
     command: start-dev --import-realm 
     environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
-      - "${KEYCLOAK_PORT}:8080"
+      - "${KEYCLOAK_PORT:-8001}:8080"
       #este es el json que se descarga de keycloak para tener persistencia de los datos
     volumes:
       - ./backend/app/restaurant-realm.json:/opt/keycloak/data/import/restaurant-realm.json
     networks:
       - restaurant-network
 
+
+  #no me falta la configuracion de nginx??
+
   api:
-    build: ./backend
-    container_name: restaurant-api
-    ports:
-      - "${API_PORT}:80"
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    expose:
+      - "80"
+    command: ["uvicorn", "backend.app.api_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-    env_file:
-      - .env  # Carga todo el archivo .env
+      <<: *app-env
+      SERVICE_NAME: api
+      ROOT_PATH: /api
     depends_on:
       - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  api_direct:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    ports:
+      - "${API_PORT:-8000}:80"
+    command: ["uvicorn", "backend.app.api_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      <<: *app-env
+      SERVICE_NAME: api_direct
+      ROOT_PATH: ""
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  search:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    expose:
+      - "80"
+    command: ["uvicorn", "backend.app.search_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      <<: *app-env
+      SERVICE_NAME: search
+      ROOT_PATH: /search
+      SERVICE_MODE: api
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - redis
+      - elasticsearch
+      - keycloak
+    networks:
+      - restaurant-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: restaurant-nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - search
+    networks:
+      - restaurant-network
+
+  seed:
+    build:
+      context: ./backend
+      dockerfile: dockerfile
+    container_name: restaurant-seed
+    command: python backend/app/scripts/seed_admin.py
+    environment:
+      <<: *app-env
+    depends_on:
+      - postgres
+      - mongos
+      - mongo-setup
+      - keycloak
+    networks:
+      - restaurant-network
+    restart: "no"
+  redis:
+    image: redis:7.2
+    container_name: restaurant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - restaurant-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: restaurant-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - restaurant-network
 
 # Volumenes para persistir datos
 volumes:
   postgres_data:
+  cfg1_data:
+  cfg2_data:
+  cfg3_data:
+  shard1a_data:
+  shard1b_data:
+  shard1c_data:
+  mongo_data:
+  redis_data:
+  elasticsearch_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:
   restaurant-network:
-    driver: bridge 
+    driver: bridge

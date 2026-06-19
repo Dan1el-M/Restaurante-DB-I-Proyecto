@@ -1,0 +1,47 @@
+#Despliega el servidor de búsqueda (Elasticsearch) 2 réplicas
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: restaurante
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+        - name: search
+          image: restaurante-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn"]
+          args: ["backend.app.search_main:app", "--host", "0.0.0.0", "--port", "80", "--proxy-headers", "--forwarded-allow-ips", "*"]
+          ports:
+            - containerPort: 80
+          env:
+            - name: SERVICE_NAME
+              value: "search"
+            - name: ROOT_PATH
+              value: "/search"
+          envFrom:
+            - configMapRef:
+                name: restaurante-config
+            - secretRef:
+                name: restaurante-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 20
