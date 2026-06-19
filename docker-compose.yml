@@ -386,6 +386,58 @@ services:
     networks:
       - restaurant-network
 
+  hiveserver2:
+    image: apache/hive:${HIVE_VERSION:-4.0.0}
+    container_name: hiveserver2
+    environment:
+      SERVICE_NAME: hiveserver2
+    ports:
+      - "${HIVE_SERVER_PORT:-10000}:10000"
+      - "${HIVE_WEB_PORT:-10002}:10002"
+    volumes:
+      - ./dataW/warehouse:/workspace/warehouse
+      - hive_data:/opt/hive/data
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD-SHELL", "beeline -u jdbc:hive2://localhost:10000/default -e 'SHOW DATABASES;' >/tmp/hive-health.log 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  warehouse-setup:
+    image: apache/hive:${HIVE_VERSION:-4.0.0}
+    container_name: restaurant-warehouse-setup
+    depends_on:
+      hiveserver2:
+        condition: service_healthy
+    volumes:
+      - ./dataW/warehouse:/workspace/warehouse
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        set -e
+        echo "==> Creating warehouse database..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/default" -e "CREATE DATABASE IF NOT EXISTS restaurant_warehouse;"
+
+        echo "==> Creating star schema..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/schema_star.sql
+
+        echo "==> Loading warehouse seed data..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/seed_warehouse.hql
+
+        echo "==> Creating OLAP cubes/views..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/hive_olap_views.sql
+
+        echo "==> Running warehouse validation queries..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/validacion_requisitos_olap.hql
+
+        echo "==> Data Warehouse setup complete."
+    networks:
+      - restaurant-network
+    restart: "no"
+
 # Volumenes para persistir datos
 volumes:
   postgres_data:
@@ -398,6 +450,7 @@ volumes:
   mongo_data:
   redis_data:
   elasticsearch_data:
+  hive_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:
