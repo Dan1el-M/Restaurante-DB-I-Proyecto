@@ -1,4 +1,15 @@
 -- =====================================================
+-- =====================================================
+-- =====================================================
+
+--para correr estas preubas del DW ejecute este comando desde la raiz:
+-- .\dataW\warehouse\tests\run_full_dw_validation.ps1
+
+-- =====================================================
+-- =====================================================
+-- =====================================================
+
+-- =====================================================
 -- Validacion de requisitos OLAP y Data Warehouse
 -- Ejecutar despues de schemas/schema_star.sql y schemas/hive_olap_views.sql
 -- Comando sugerido:
@@ -13,6 +24,7 @@ DESCRIBE dim_time;
 DESCRIBE dim_customer;
 DESCRIBE dim_product;
 DESCRIBE dim_restaurant;
+DESCRIBE dim_status;
 DESCRIBE fact_orders;
 DESCRIBE fact_reservations;
 
@@ -25,6 +37,8 @@ UNION ALL
 SELECT 'dim_product' AS tabla, COUNT(*) AS total_registros FROM dim_product
 UNION ALL
 SELECT 'dim_restaurant' AS tabla, COUNT(*) AS total_registros FROM dim_restaurant
+UNION ALL
+SELECT 'dim_status' AS tabla, COUNT(*) AS total_registros FROM dim_status
 UNION ALL
 SELECT 'fact_orders' AS tabla, COUNT(*) AS total_registros FROM fact_orders
 UNION ALL
@@ -141,3 +155,5 @@ SELECT
 FROM cubo_ocupacion_mesas
 ORDER BY porcentaje_ocupacion DESC
 LIMIT 20;
+
+
