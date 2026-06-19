@@ -1,0 +1,36 @@
+# Data Warehouse OLAP Requirements
+# Base de Datos II - Proyecto OLAP
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pyspark>=3.4.0
+
+# Database Drivers
+psycopg2-binary>=2.9.0  # PostgreSQL
+pymongo>=4.5.0  # MongoDB
+sqlalchemy>=2.0.0
+
+# Hive Integration
+pyhive[hive]>=0.6.1
+thrift>=0.16.0
+
+# Data Formats
+pyarrow>=13.0.0  # Parquet support
+fastparquet>=2023.10.0  # Parquet support
+orc>=1.0.0  # ORC format support
+
+# Logging & Monitoring
+python-logging-loki>=0.3.2
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Documentation
+sphinx>=7.2.0
+sphinx-rtd-theme>=1.3.0
