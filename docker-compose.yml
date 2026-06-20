@@ -386,6 +386,83 @@ services:
     networks:
       - restaurant-network
 
+  # Spark master coordina el procesamiento distribuido del punto 2.
+  spark-master:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-master
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - 0.0.0.0
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    ports:
+      - "${SPARK_MASTER_PORT:-7077}:7077"
+      - "${SPARK_MASTER_WEB_PORT:-8081}:8080"
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/localhost/7077'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # Spark worker ejecuta las tareas del job PySpark.
+  spark-worker:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-worker
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --webui-port
+      - "8081"
+    environment:
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-1G}
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-1}
+    ports:
+      - "${SPARK_WORKER_WEB_PORT:-8082}:8081"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - restaurant-network
+
+  # Job de analitica Spark: crea DataFrames, usa SparkSQL y guarda resultados.
+  spark-analytics:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-analytics
+    environment:
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_SCALE_FACTOR: ${SPARK_SCALE_FACTOR:-1000}
+      SPARK_SHUFFLE_PARTITIONS: ${SPARK_SHUFFLE_PARTITIONS:-4}
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        /opt/spark/bin/spark-submit \
+          --master "$$SPARK_MASTER_URL" \
+          /workspace/spark/jobs/analytics_job.py
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_started
+    networks:
+      - restaurant-network
+    restart: "no"
+
   hiveserver2:
     image: apache/hive:${HIVE_VERSION:-4.0.0}
     container_name: hiveserver2
