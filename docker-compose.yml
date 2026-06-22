@@ -29,6 +29,48 @@ x-app-env: &app-env
   SEARCH_PORT: ${SEARCH_PORT:-8002}
   ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
 
+x-airflow-common: &airflow-common
+  build:
+    context: ./dataW/airflow
+    args:
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-2.10.5-python3.11}
+  image: restaurant-airflow:${AIRFLOW_VERSION:-2.10.5-python3.11}
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_WEBSERVER_SECRET_KEY:-restaurant_airflow_local_secret_change_me}
+    AIRFLOW__WEBSERVER__WORKERS: ${AIRFLOW_WEBSERVER_WORKERS:-1}
+    AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT: ${AIRFLOW_WEBSERVER_MASTER_TIMEOUT:-900}
+    AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT: ${AIRFLOW_WEBSERVER_WORKER_TIMEOUT:-900}
+    AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+    AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
+    AIRFLOW_POINT4_SCRIPTS_DIR: /opt/airflow/scripts
+    AIRFLOW_POINT4_STATE_DIR: /opt/airflow/state
+    ALLOW_SOURCE_UNAVAILABLE: ${ALLOW_SOURCE_UNAVAILABLE:-true}
+    ALLOW_REINDEX_UNAVAILABLE: ${ALLOW_REINDEX_UNAVAILABLE:-true}
+    FORCE_REINDEX_PRODUCTS: ${FORCE_REINDEX_PRODUCTS:-false}
+    REINDEX_ON_FIRST_RUN: ${REINDEX_ON_FIRST_RUN:-false}
+    SEARCH_REINDEX_URL: ${SEARCH_REINDEX_URL:-http://search/reindex}
+    SEARCH_AUTH_TOKEN: ${SEARCH_AUTH_TOKEN:-}
+    SPARK_IMAGE: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    SPARK_MASTER_URL: spark://spark-master:7077
+    SPARK_SCALE_FACTOR: ${SPARK_SCALE_FACTOR:-1000}
+    SPARK_SHUFFLE_PARTITIONS: ${SPARK_SHUFFLE_PARTITIONS:-4}
+  volumes:
+    - ./dataW/airflow/dags:/opt/airflow/dags
+    - ./dataW/airflow/scripts:/opt/airflow/scripts
+    - ./dataW/airflow/logs:/opt/airflow/logs
+    - ./dataW/airflow/plugins:/opt/airflow/plugins
+    - ./dataW/airflow/state:/opt/airflow/state
+    - /var/run/docker.sock:/var/run/docker.sock
+  user: "0:0"
+  networks:
+    - restaurant-network
+
 services:
   postgres:
     image: postgres:15.6
@@ -477,7 +519,7 @@ services:
     networks:
       - restaurant-network
     healthcheck:
-      test: ["CMD-SHELL", "beeline -u jdbc:hive2://localhost:10000/default -e 'SHOW DATABASES;' >/tmp/hive-health.log 2>&1"]
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/localhost/10000'"]
       interval: 10s
       timeout: 10s
       retries: 30
@@ -594,6 +636,92 @@ services:
     networks:
       - restaurant-network
 
+  airflow-postgres:
+    image: postgres:15.6
+    container_name: restaurant-airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: restaurant-airflow-init
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      hiveserver2:
+        condition: service_healthy
+      warehouse-setup:
+        condition: service_completed_successfully
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_started
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        set -e
+        export PATH="/home/airflow/.local/bin:$$PATH"
+        echo "==> Migrating Airflow metadata database..."
+        airflow db migrate
+
+        echo "==> Creating Airflow admin user if needed..."
+        airflow users create \
+          --username "$$AIRFLOW_ADMIN_USERNAME" \
+          --firstname Admin \
+          --lastname Restaurant \
+          --role Admin \
+          --email "$$AIRFLOW_ADMIN_EMAIL" \
+          --password "$$AIRFLOW_ADMIN_PASSWORD" || true
+
+        echo "==> Checking DAG parsing..."
+        airflow dags list | grep restaurant_olap_pipeline
+        echo "==> Airflow init complete."
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: restaurant-airflow-webserver
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "${AIRFLOW_PORT:-8090}:8080"
+    command: webserver --workers 1 --worker-timeout 900
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: restaurant-airflow-scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
 # Volumenes para persistir datos
 volumes:
   postgres_data:
@@ -608,6 +736,7 @@ volumes:
   elasticsearch_data:
   hive_data:
   superset_home:
+  airflow_postgres_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:

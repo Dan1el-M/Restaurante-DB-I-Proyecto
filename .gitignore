@@ -197,6 +197,8 @@ cython_debug/
 # Data Warehouse / Spark generated outputs
 dataW/spark/output/
 dataW/visualization/output/
+dataW/airflow/logs/
+dataW/airflow/state/
 
 # PyPI configuration file
 .pypirc
