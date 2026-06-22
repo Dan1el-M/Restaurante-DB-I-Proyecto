@@ -386,6 +386,83 @@ services:
     networks:
       - restaurant-network
 
+  # Spark master coordina el procesamiento distribuido del punto 2.
+  spark-master:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-master
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - 0.0.0.0
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    ports:
+      - "${SPARK_MASTER_PORT:-7077}:7077"
+      - "${SPARK_MASTER_WEB_PORT:-8081}:8080"
+    networks:
+      - restaurant-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/localhost/7077'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # Spark worker ejecuta las tareas del job PySpark.
+  spark-worker:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-worker
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --webui-port
+      - "8081"
+    environment:
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-1G}
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-1}
+    ports:
+      - "${SPARK_WORKER_WEB_PORT:-8082}:8081"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - restaurant-network
+
+  # Job de analitica Spark: crea DataFrames, usa SparkSQL y guarda resultados.
+  spark-analytics:
+    image: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
+    container_name: restaurant-spark-analytics
+    environment:
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_SCALE_FACTOR: ${SPARK_SCALE_FACTOR:-1000}
+      SPARK_SHUFFLE_PARTITIONS: ${SPARK_SHUFFLE_PARTITIONS:-4}
+    volumes:
+      - ./dataW/spark:/workspace/spark
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        /opt/spark/bin/spark-submit \
+          --master "$$SPARK_MASTER_URL" \
+          /workspace/spark/jobs/analytics_job.py
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_started
+    networks:
+      - restaurant-network
+    restart: "no"
+
   hiveserver2:
     image: apache/hive:${HIVE_VERSION:-4.0.0}
     container_name: hiveserver2
@@ -438,6 +515,85 @@ services:
       - restaurant-network
     restart: "no"
 
+  # Inicializa la base interna de Superset y crea el usuario admin local.
+  superset-init:
+    build:
+      context: ./dataW/visualization/superset
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION:-4.1.2}
+    image: restaurant-superset:${SUPERSET_VERSION:-4.1.2}
+    container_name: restaurant-superset-init
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-restaurant_superset_local_secret_change_me}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-Admin}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-Restaurant}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      HIVE_WAREHOUSE_SQLALCHEMY_URI: ${HIVE_WAREHOUSE_SQLALCHEMY_URI:-hive://hive@hiveserver2:10000/restaurant_warehouse?auth=NOSASL}
+    volumes:
+      - superset_home:/app/superset_home
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        set -e
+        echo "==> Upgrading Superset metadata database..."
+        superset db upgrade
+
+        echo "==> Creating Superset admin user if needed..."
+        superset fab create-admin \
+          --username "$$SUPERSET_ADMIN_USERNAME" \
+          --firstname "$$SUPERSET_ADMIN_FIRSTNAME" \
+          --lastname "$$SUPERSET_ADMIN_LASTNAME" \
+          --email "$$SUPERSET_ADMIN_EMAIL" \
+          --password "$$SUPERSET_ADMIN_PASSWORD" || true
+
+        echo "==> Initializing Superset roles and permissions..."
+        superset init
+
+        echo "==> Registering Hive warehouse connection in Superset..."
+        superset set-database-uri \
+          -d "Restaurant Hive Warehouse" \
+          -u "$$HIVE_WAREHOUSE_SQLALCHEMY_URI" || echo "[WARN] Could not auto-register Hive connection; create it manually from the Superset UI."
+
+        echo "==> Superset setup complete."
+    depends_on:
+      hiveserver2:
+        condition: service_healthy
+      warehouse-setup:
+        condition: service_completed_successfully
+    networks:
+      - restaurant-network
+    restart: "no"
+
+  # Herramienta BI del punto 3. Se conecta directamente a HiveServer2 y sus vistas OLAP.
+  superset:
+    image: restaurant-superset:${SUPERSET_VERSION:-4.1.2}
+    container_name: restaurant-superset
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-restaurant_superset_local_secret_change_me}
+    ports:
+      - "${SUPERSET_PORT:-8088}:8088"
+    volumes:
+      - superset_home:/app/superset_home
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        superset run -h 0.0.0.0 -p 8088
+    depends_on:
+      hiveserver2:
+        condition: service_healthy
+      warehouse-setup:
+        condition: service_completed_successfully
+      superset-init:
+        condition: service_completed_successfully
+    networks:
+      - restaurant-network
+
 # Volumenes para persistir datos
 volumes:
   postgres_data:
@@ -451,6 +607,7 @@ volumes:
   redis_data:
   elasticsearch_data:
   hive_data:
+  superset_home:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:
