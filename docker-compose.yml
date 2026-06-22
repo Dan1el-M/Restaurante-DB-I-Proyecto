@@ -515,6 +515,85 @@ services:
       - restaurant-network
     restart: "no"
 
+  # Inicializa la base interna de Superset y crea el usuario admin local.
+  superset-init:
+    build:
+      context: ./dataW/visualization/superset
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION:-4.1.2}
+    image: restaurant-superset:${SUPERSET_VERSION:-4.1.2}
+    container_name: restaurant-superset-init
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-restaurant_superset_local_secret_change_me}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-Admin}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-Restaurant}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      HIVE_WAREHOUSE_SQLALCHEMY_URI: ${HIVE_WAREHOUSE_SQLALCHEMY_URI:-hive://hive@hiveserver2:10000/restaurant_warehouse?auth=NOSASL}
+    volumes:
+      - superset_home:/app/superset_home
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        set -e
+        echo "==> Upgrading Superset metadata database..."
+        superset db upgrade
+
+        echo "==> Creating Superset admin user if needed..."
+        superset fab create-admin \
+          --username "$$SUPERSET_ADMIN_USERNAME" \
+          --firstname "$$SUPERSET_ADMIN_FIRSTNAME" \
+          --lastname "$$SUPERSET_ADMIN_LASTNAME" \
+          --email "$$SUPERSET_ADMIN_EMAIL" \
+          --password "$$SUPERSET_ADMIN_PASSWORD" || true
+
+        echo "==> Initializing Superset roles and permissions..."
+        superset init
+
+        echo "==> Registering Hive warehouse connection in Superset..."
+        superset set-database-uri \
+          -d "Restaurant Hive Warehouse" \
+          -u "$$HIVE_WAREHOUSE_SQLALCHEMY_URI" || echo "[WARN] Could not auto-register Hive connection; create it manually from the Superset UI."
+
+        echo "==> Superset setup complete."
+    depends_on:
+      hiveserver2:
+        condition: service_healthy
+      warehouse-setup:
+        condition: service_completed_successfully
+    networks:
+      - restaurant-network
+    restart: "no"
+
+  # Herramienta BI del punto 3. Se conecta directamente a HiveServer2 y sus vistas OLAP.
+  superset:
+    image: restaurant-superset:${SUPERSET_VERSION:-4.1.2}
+    container_name: restaurant-superset
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-restaurant_superset_local_secret_change_me}
+    ports:
+      - "${SUPERSET_PORT:-8088}:8088"
+    volumes:
+      - superset_home:/app/superset_home
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        superset run -h 0.0.0.0 -p 8088
+    depends_on:
+      hiveserver2:
+        condition: service_healthy
+      warehouse-setup:
+        condition: service_completed_successfully
+      superset-init:
+        condition: service_completed_successfully
+    networks:
+      - restaurant-network
+
 # Volumenes para persistir datos
 volumes:
   postgres_data:
@@ -528,6 +607,7 @@ volumes:
   redis_data:
   elasticsearch_data:
   hive_data:
+  superset_home:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:
