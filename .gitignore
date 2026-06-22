@@ -194,6 +194,10 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Data Warehouse / Spark generated outputs
+dataW/spark/output/
+dataW/visualization/output/
+
 # PyPI configuration file
 .pypirc
 
