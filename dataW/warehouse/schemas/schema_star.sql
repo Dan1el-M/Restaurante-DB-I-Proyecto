@@ -8,6 +8,25 @@
 -- Las relaciones del esquema estrella se mantienen por convencion de columnas:
 -- dim_* son dimensiones y fact_* son tablas de hechos.
 
+DROP VIEW IF EXISTS cubo_rentabilidad;
+DROP VIEW IF EXISTS cubo_ocupacion_mesas;
+DROP VIEW IF EXISTS cubo_rendimiento_restaurantes;
+DROP VIEW IF EXISTS cubo_bestsellers_productos;
+DROP VIEW IF EXISTS cubo_lealtad_clientes;
+DROP VIEW IF EXISTS cubo_crecimiento_mensual;
+DROP VIEW IF EXISTS cubo_tendencias_horarios_pico;
+DROP VIEW IF EXISTS cubo_ordenes_completadas_canceladas;
+DROP VIEW IF EXISTS cubo_actividad_clientes_zona;
+DROP VIEW IF EXISTS cubo_ingresos_mes_categoria;
+
+DROP TABLE IF EXISTS fact_reservations;
+DROP TABLE IF EXISTS fact_orders;
+DROP TABLE IF EXISTS dim_status;
+DROP TABLE IF EXISTS dim_restaurant;
+DROP TABLE IF EXISTS dim_product;
+DROP TABLE IF EXISTS dim_customer;
+DROP TABLE IF EXISTS dim_time;
+
 -- =====================================================
 -- 1. DIMENSION: TIEMPO
 -- =====================================================
@@ -24,6 +43,8 @@ CREATE TABLE IF NOT EXISTS dim_time (
     is_weekend BOOLEAN,
     season STRING
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -41,6 +62,8 @@ CREATE TABLE IF NOT EXISTS dim_customer (
     total_orders INT,
     is_active BOOLEAN
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -58,6 +81,8 @@ CREATE TABLE IF NOT EXISTS dim_product (
     creation_date DATE,
     last_update DATE
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -74,6 +99,8 @@ CREATE TABLE IF NOT EXISTS dim_restaurant (
     email STRING,
     status STRING
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -85,6 +112,8 @@ CREATE TABLE IF NOT EXISTS dim_status (
     status_type STRING,
     description STRING
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -107,6 +136,8 @@ CREATE TABLE IF NOT EXISTS fact_orders (
     order_time TIMESTAMP,
     delivery_time TIMESTAMP
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;
 
 -- =====================================================
@@ -126,4 +157,6 @@ CREATE TABLE IF NOT EXISTS fact_reservations (
     check_in_time TIMESTAMP,
     check_out_time TIMESTAMP
 )
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
 STORED AS TEXTFILE;

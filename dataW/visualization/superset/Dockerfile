@@ -18,6 +18,9 @@ RUN apt-get update \
 # hacia el Data Warehouse. Se fija version para evitar instalaciones no reproducibles.
 RUN pip install --no-cache-dir "PyHive[hive]==0.7.0"
 
+COPY patch_hive_engine.py /tmp/patch_hive_engine.py
+RUN python /tmp/patch_hive_engine.py && rm /tmp/patch_hive_engine.py
+
 COPY --chown=superset:superset superset_config.py /app/pythonpath/superset_config.py
 
 USER superset
