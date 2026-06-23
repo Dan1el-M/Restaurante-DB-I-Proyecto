@@ -3,6 +3,7 @@ from pymongo import ReturnDocument
 from sqlalchemy.exc import IntegrityError
 
 from backend.models.menus import Menu
+from backend.models.order_items import OrderItem
 from backend.models.orders import Order
 from backend.models.reservations import Reservation
 from backend.models.restaurants import Restaurant
@@ -218,6 +219,18 @@ class PostgresDAO(BaseDAO):
     def get_role_by_name(self, role_name: str):
         return self.db.query(Role).filter(Role.role_name == role_name).first()
 
+    def list_roles(self):
+        return self.db.query(Role).all()
+
+    def list_users(self):
+        return self.db.query(User).all()
+
+    def list_orders(self):
+        return self.db.query(Order).all()
+
+    def list_order_items(self):
+        return self.db.query(OrderItem).all()
+
 
 class MongoDAO(BaseDAO):
     id_fields = {
@@ -227,6 +240,7 @@ class MongoDAO(BaseDAO):
         "menus": "menu_id",
         "tables": "table_id",
         "orders": "order_id",
+        "order_items": "order_item_id",
         "reservations": "reservation_id",
     }
 
@@ -360,3 +374,15 @@ class MongoDAO(BaseDAO):
 
     def get_role_by_name(self, role_name: str):
         return self._clean(self.db.roles.find_one({"role_name": role_name}))
+
+    def list_roles(self):
+        return self._list("roles")
+
+    def list_users(self):
+        return self._list("users")
+
+    def list_orders(self):
+        return self._list("orders")
+
+    def list_order_items(self):
+        return self._list("order_items")

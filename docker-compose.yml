@@ -489,6 +489,8 @@ services:
     depends_on:
       hiveserver2:
         condition: service_healthy
+      warehouse-seed-generator:
+        condition: service_completed_successfully
     volumes:
       - ./dataW/warehouse:/workspace/warehouse
     entrypoint: ["/bin/bash", "-lc"]
@@ -501,16 +503,31 @@ services:
         echo "==> Creating star schema..."
         /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/schema_star.sql
 
-        echo "==> Loading warehouse seed data..."
-        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/seed_warehouse.hql
+        echo "==> Loading operational warehouse data..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/generated/operational_seed.hql
 
-        echo "==> Creating OLAP cubes/views..."
-        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/hive_olap_views.sql
+        echo "==> Creating dashboard OLAP views..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/hive_dashboard_views.sql
 
-        echo "==> Running warehouse validation queries..."
-        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/validacion_requisitos_olap.hql
+        echo "==> Running dashboard validation queries..."
+        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/validacion_dashboards_superset.hql
 
         echo "==> Data Warehouse setup complete."
+    networks:
+      - restaurant-network
+    restart: "no"
+
+  warehouse-seed-generator:
+    image: python:3.12-slim
+    container_name: restaurant-warehouse-seed-generator
+    environment:
+      WAREHOUSE_API_EXPORT_URL: ${WAREHOUSE_API_EXPORT_URL:-http://api/graph/export}
+      WAREHOUSE_SEED_OUTPUT: /workspace/warehouse/generated/operational_seed.hql
+    volumes:
+      - ./dataW/warehouse:/workspace/warehouse
+    command: python /workspace/warehouse/scripts/generate_operational_seed.py
+    depends_on:
+      - api
     networks:
       - restaurant-network
     restart: "no"
@@ -594,6 +611,19 @@ services:
     networks:
       - restaurant-network
 
+  neo4j:
+    image: neo4j:5-community
+    container_name: restaurant-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-restaurant123}
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - restaurant-network
+
 # Volumenes para persistir datos
 volumes:
   postgres_data:
@@ -608,6 +638,7 @@ volumes:
   elasticsearch_data:
   hive_data:
   superset_home:
+  neo4j_data:
 
 # Define el tipo de red que usa la red, en este caso todos se pueden ver entre si
 networks:

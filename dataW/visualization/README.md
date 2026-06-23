@@ -7,7 +7,9 @@ Esta carpeta implementa la capa de visualizacion del proyecto usando Apache Supe
 ```text
 PostgreSQL / MongoDB
         |
-ETL / Spark
+API /graph/export
+        |
+Generador HQL operacional
         |
 Apache Hive Data Warehouse
         |
@@ -25,7 +27,8 @@ La herramienta BI no usa APIs intermedias. Superset consulta directamente HiveSe
 Los servicios quedaron integrados en `docker-compose.yml`:
 
 - `hiveserver2`: servidor Hive del Data Warehouse.
-- `warehouse-setup`: crea base `restaurant_warehouse`, esquema estrella, datos de prueba y vistas OLAP.
+- `warehouse-seed-generator`: consulta la API real y genera `generated/operational_seed.hql`.
+- `warehouse-setup`: crea base `restaurant_warehouse`, esquema estrella, carga datos operacionales y vistas OLAP.
 - `superset-init`: inicializa Superset y crea el usuario administrador.
 - `superset`: interfaz web para construir dashboards.
 
@@ -34,8 +37,16 @@ La imagen de Superset esta pinneada mediante `apache/superset:4.1.2` en `dataW/v
 ## Levantar visualizacion
 
 ```powershell
-docker compose up -d hiveserver2 warehouse-setup superset-init superset
+docker compose up -d --build api hiveserver2 warehouse-seed-generator warehouse-setup superset-init superset
 ```
+
+El servicio `warehouse-seed-generator` toma los datos actuales desde:
+
+```text
+http://api/graph/export
+```
+
+Por eso los dashboards de Superset quedan basados en los datos existentes de PostgreSQL/MongoDB, no en el archivo antiguo de pruebas.
 
 Luego abrir:
 

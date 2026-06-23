@@ -1,0 +1,6 @@
+neo4j>=5.20.0,<6.0.0
+python-dotenv>=1.0.0,<2.0.0
+sqlalchemy>=2.0.0,<3.0.0
+psycopg2-binary>=2.9.0,<3.0.0
+pymongo>=4.7.0,<5.0.0
+requests>=2.32.0,<3.0.0

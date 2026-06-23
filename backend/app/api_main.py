@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.routers import auth, debug, menus, orders, reservations, restaurants, tables, users
+from backend.app.routers import auth, debug, graph, menus, orders, reservations, restaurants, tables, users
 
 ROOT_PATH = os.getenv("ROOT_PATH", "").rstrip("/")
 
@@ -46,5 +46,6 @@ app.include_router(menus.router)
 app.include_router(reservations.router)
 app.include_router(orders.router)
 app.include_router(tables.router)
+app.include_router(graph.router)
 
 app.include_router(debug.router)
