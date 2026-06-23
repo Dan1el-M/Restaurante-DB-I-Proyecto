@@ -534,7 +534,6 @@ services:
     image: apache/hive:${HIVE_VERSION:-4.0.0}
     container_name: restaurant-warehouse-setup
     environment:
-      FORCE_WAREHOUSE_SETUP: ${FORCE_WAREHOUSE_SETUP:-false}
       RUN_WAREHOUSE_VALIDATION: ${RUN_WAREHOUSE_VALIDATION:-false}
     depends_on:
       hiveserver2:
@@ -548,14 +547,6 @@ services:
     command:
       - |
         set -e
-
-        if [ "$(printenv FORCE_WAREHOUSE_SETUP)" != "true" ] && [ -f /opt/hive/data/.restaurant_warehouse_setup_complete ]; then
-          if /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/default" --silent=true --showHeader=false -e "SHOW DATABASES LIKE 'restaurant_warehouse';" | grep -q restaurant_warehouse; then
-            echo "==> Data Warehouse already initialized. Set FORCE_WAREHOUSE_SETUP=true to rebuild it."
-            exit 0
-          fi
-          echo "==> Warehouse marker exists, but Hive metastore is missing restaurant_warehouse. Rebuilding it."
-        fi
 
         echo "==> Creating warehouse database..."
         /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/default" -e "CREATE DATABASE IF NOT EXISTS restaurant_warehouse;"
@@ -576,7 +567,6 @@ services:
           echo "==> Skipping warehouse validation queries. Set RUN_WAREHOUSE_VALIDATION=true to run them."
         fi
 
-        touch /opt/hive/data/.restaurant_warehouse_setup_complete
         echo "==> Data Warehouse setup complete."
     networks:
       - restaurant-network
