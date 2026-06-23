@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from common import exec_in_container
+from common import exec_in_container, wait_for_container
 
 
 HIVE_CONTAINER = "hiveserver2"
@@ -39,6 +39,7 @@ def assert_count_positive(table_name: str) -> None:
 
 def main() -> None:
     print("==> validate_warehouse")
+    wait_for_container(HIVE_CONTAINER, tcp_host="hiveserver2", tcp_port=10000)
     tables_output = beeline("SHOW TABLES;")
     lower_output = tables_output.lower()
 

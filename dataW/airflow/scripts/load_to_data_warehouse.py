@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from common import exec_in_container
+from common import exec_in_container, wait_for_container
 
 
 HIVE_CONTAINER = "hiveserver2"
@@ -29,6 +29,7 @@ def main() -> None:
     duplicados innecesarios en corridas diarias de Airflow.
     """
     print("==> load_to_data_warehouse")
+    wait_for_container(HIVE_CONTAINER, tcp_host="hiveserver2", tcp_port=10000)
     run_beeline(["-u", DEFAULT_JDBC, "-e", "CREATE DATABASE IF NOT EXISTS restaurant_warehouse;"])
     run_beeline(["-u", WAREHOUSE_JDBC, "-f", "/workspace/warehouse/schemas/schema_star.sql"])
 

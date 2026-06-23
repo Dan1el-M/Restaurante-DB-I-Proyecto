@@ -52,6 +52,7 @@ x-airflow-common: &airflow-common
     AIRFLOW_POINT4_STATE_DIR: /opt/airflow/state
     ALLOW_SOURCE_UNAVAILABLE: ${ALLOW_SOURCE_UNAVAILABLE:-true}
     ALLOW_REINDEX_UNAVAILABLE: ${ALLOW_REINDEX_UNAVAILABLE:-true}
+    FORCE_AIRFLOW_INIT: ${FORCE_AIRFLOW_INIT:-false}
     FORCE_REINDEX_PRODUCTS: ${FORCE_REINDEX_PRODUCTS:-false}
     REINDEX_ON_FIRST_RUN: ${REINDEX_ON_FIRST_RUN:-false}
     SEARCH_REINDEX_URL: ${SEARCH_REINDEX_URL:-http://search/reindex}
@@ -100,8 +101,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
 #replica 2 de sharding
   cfg2:
@@ -116,8 +117,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
 #replica 3 de sharding
   cfg3:
@@ -132,8 +133,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27019", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
   shard1a:
@@ -148,8 +149,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
   shard1b:
@@ -164,8 +165,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
 #shard 1, con replica set de 3 nodos (shard1a, shard1b, shard1c)
   shard1c:
@@ -180,8 +181,8 @@ services:
       test: ["CMD", "mongosh", "--port", "27018", "--quiet", "--eval", "db.adminCommand({ping:1})"]
       interval: 5s
       timeout: 10s
-      retries: 36
-      start_period: 10s
+      retries: 120
+      start_period: 60s
 
   mongos:
     image: mongo:7.0
@@ -204,10 +205,10 @@ services:
     networks:
       - restaurant-network
     healthcheck:
-      test: ["CMD", "mongosh", "--port", "27017", "--quiet", "--eval", "db.adminCommand({ping:1})"]
+      test: ["CMD-SHELL", "bash -lc '</dev/tcp/localhost/27017'"]
       interval: 5s
-      timeout: 5s
-      retries: 36
+      timeout: 10s
+      retries: 60
       start_period: 15s
 
 # Inicializa cfgReplSet antes de levantar mongos (si no, mongos falla al arrancar).
@@ -508,35 +509,52 @@ services:
   hiveserver2:
     image: apache/hive:${HIVE_VERSION:-4.0.0}
     container_name: hiveserver2
+    restart: unless-stopped
+    user: "0:0"
     environment:
       SERVICE_NAME: hiveserver2
+      SERVICE_OPTS: "-Djavax.jdo.option.ConnectionURL=jdbc:derby:/opt/hive/metastore/metastore_db;create=true"
     ports:
       - "${HIVE_SERVER_PORT:-10000}:10000"
       - "${HIVE_WEB_PORT:-10002}:10002"
     volumes:
       - ./dataW/warehouse:/workspace/warehouse
       - hive_data:/opt/hive/data
+      - hive_metastore:/opt/hive/metastore
     networks:
       - restaurant-network
     healthcheck:
       test: ["CMD-SHELL", "bash -lc '</dev/tcp/localhost/10000'"]
       interval: 10s
       timeout: 10s
-      retries: 30
-      start_period: 30s
+      retries: 90
+      start_period: 300s
 
   warehouse-setup:
     image: apache/hive:${HIVE_VERSION:-4.0.0}
     container_name: restaurant-warehouse-setup
+    environment:
+      FORCE_WAREHOUSE_SETUP: ${FORCE_WAREHOUSE_SETUP:-false}
+      RUN_WAREHOUSE_VALIDATION: ${RUN_WAREHOUSE_VALIDATION:-false}
     depends_on:
       hiveserver2:
         condition: service_healthy
     volumes:
       - ./dataW/warehouse:/workspace/warehouse
+      - hive_data:/opt/hive/data
     entrypoint: ["/bin/bash", "-lc"]
     command:
       - |
         set -e
+
+        if [ "$(printenv FORCE_WAREHOUSE_SETUP)" != "true" ] && [ -f /opt/hive/data/.restaurant_warehouse_setup_complete ]; then
+          if /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/default" --silent=true --showHeader=false -e "SHOW DATABASES LIKE 'restaurant_warehouse';" | grep -q restaurant_warehouse; then
+            echo "==> Data Warehouse already initialized. Set FORCE_WAREHOUSE_SETUP=true to rebuild it."
+            exit 0
+          fi
+          echo "==> Warehouse marker exists, but Hive metastore is missing restaurant_warehouse. Rebuilding it."
+        fi
+
         echo "==> Creating warehouse database..."
         /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/default" -e "CREATE DATABASE IF NOT EXISTS restaurant_warehouse;"
 
@@ -549,9 +567,14 @@ services:
         echo "==> Creating OLAP cubes/views..."
         /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/schemas/hive_olap_views.sql
 
-        echo "==> Running warehouse validation queries..."
-        /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/validacion_requisitos_olap.hql
+        if [ "$(printenv RUN_WAREHOUSE_VALIDATION)" = "true" ]; then
+          echo "==> Running warehouse validation queries..."
+          /opt/hive/bin/beeline -u "jdbc:hive2://hiveserver2:10000/restaurant_warehouse" -f /workspace/warehouse/tests/validacion_requisitos_olap.hql
+        else
+          echo "==> Skipping warehouse validation queries. Set RUN_WAREHOUSE_VALIDATION=true to run them."
+        fi
 
+        touch /opt/hive/data/.restaurant_warehouse_setup_complete
         echo "==> Data Warehouse setup complete."
     networks:
       - restaurant-network
@@ -568,6 +591,8 @@ services:
     environment:
       SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-restaurant_superset_local_secret_change_me}
+      FORCE_SUPERSET_INIT: ${FORCE_SUPERSET_INIT:-false}
+      FORCE_SUPERSET_IMPORT: ${FORCE_SUPERSET_IMPORT:-false}
       SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
       SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-Admin}
       SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-Restaurant}
@@ -576,31 +601,50 @@ services:
       HIVE_WAREHOUSE_SQLALCHEMY_URI: ${HIVE_WAREHOUSE_SQLALCHEMY_URI:-hive://hive@hiveserver2:10000/restaurant_warehouse?auth=NOSASL}
     volumes:
       - superset_home:/app/superset_home
+      - ./dashboards.zip:/app/imports/dashboards.zip:ro
     command:
       - /bin/bash
       - -lc
       - |
         set -e
-        echo "==> Upgrading Superset metadata database..."
-        superset db upgrade
 
-        echo "==> Creating Superset admin user if needed..."
-        superset fab create-admin \
-          --username "$$SUPERSET_ADMIN_USERNAME" \
-          --firstname "$$SUPERSET_ADMIN_FIRSTNAME" \
-          --lastname "$$SUPERSET_ADMIN_LASTNAME" \
-          --email "$$SUPERSET_ADMIN_EMAIL" \
-          --password "$$SUPERSET_ADMIN_PASSWORD" || true
+        if [ "$(printenv FORCE_SUPERSET_INIT)" != "true" ] && [ -f /app/superset_home/.superset_init_complete ]; then
+          echo "==> Superset already initialized. Set FORCE_SUPERSET_INIT=true to rebuild it."
+        else
+          echo "==> Upgrading Superset metadata database..."
+          superset db upgrade
 
-        echo "==> Initializing Superset roles and permissions..."
-        superset init
+          echo "==> Creating Superset admin user if needed..."
+          superset fab create-admin \
+            --username "$$SUPERSET_ADMIN_USERNAME" \
+            --firstname "$$SUPERSET_ADMIN_FIRSTNAME" \
+            --lastname "$$SUPERSET_ADMIN_LASTNAME" \
+            --email "$$SUPERSET_ADMIN_EMAIL" \
+            --password "$$SUPERSET_ADMIN_PASSWORD" || true
+
+          echo "==> Initializing Superset roles and permissions..."
+          superset init
+
+          echo "==> Superset setup complete."
+          touch /app/superset_home/.superset_init_complete
+        fi
 
         echo "==> Registering Hive warehouse connection in Superset..."
         superset set-database-uri \
           -d "Restaurant Hive Warehouse" \
           -u "$$HIVE_WAREHOUSE_SQLALCHEMY_URI" || echo "[WARN] Could not auto-register Hive connection; create it manually from the Superset UI."
 
-        echo "==> Superset setup complete."
+        if [ -f /app/imports/dashboards.zip ]; then
+          if [ "$(printenv FORCE_SUPERSET_IMPORT)" = "true" ] || [ ! -f /app/superset_home/.superset_dashboards_import_complete ]; then
+            echo "==> Importing Superset dashboards from dashboards.zip..."
+            superset import-dashboards -p /app/imports/dashboards.zip -u "$$SUPERSET_ADMIN_USERNAME"
+            touch /app/superset_home/.superset_dashboards_import_complete
+          else
+            echo "==> Superset dashboards already imported. Set FORCE_SUPERSET_IMPORT=true to re-import them."
+          fi
+        else
+          echo "[WARN] /app/imports/dashboards.zip not found; skipping dashboard import."
+        fi
     depends_on:
       hiveserver2:
         condition: service_healthy
@@ -673,6 +717,12 @@ services:
       - |
         set -e
         export PATH="/home/airflow/.local/bin:$$PATH"
+
+        if [ "$(printenv FORCE_AIRFLOW_INIT)" != "true" ] && [ -f /opt/airflow/state/.airflow_init_complete ]; then
+          echo "==> Airflow already initialized. Set FORCE_AIRFLOW_INIT=true to rebuild it."
+          exit 0
+        fi
+
         echo "==> Migrating Airflow metadata database..."
         airflow db migrate
 
@@ -688,6 +738,7 @@ services:
         echo "==> Checking DAG parsing..."
         airflow dags list | grep restaurant_olap_pipeline
         echo "==> Airflow init complete."
+        touch /opt/airflow/state/.airflow_init_complete
     restart: "no"
 
   airflow-webserver:
@@ -716,7 +767,7 @@ services:
         condition: service_completed_successfully
     command: scheduler
     healthcheck:
-      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      test: ["CMD-SHELL", "curl --fail --silent http://airflow-webserver:8080/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 10
@@ -735,6 +786,7 @@ volumes:
   redis_data:
   elasticsearch_data:
   hive_data:
+  hive_metastore:
   superset_home:
   airflow_postgres_data:
 

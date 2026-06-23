@@ -5,7 +5,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from common import env_bool, exec_in_container, project_state_dir
+from common import env_bool, exec_in_container, project_state_dir, wait_for_container
 
 
 HIVE_CONTAINER = "hiveserver2"
@@ -45,6 +45,7 @@ def main() -> None:
     REINDEX_ON_FIRST_RUN=false evita reindexar en la primera corrida cuando solo
     se esta inicializando el estado del pipeline.
     """
+    wait_for_container(HIVE_CONTAINER, tcp_host="hiveserver2", tcp_port=10000)
     state_file = project_state_dir() / "product_catalog_state.json"
     current_hash = product_catalog_fingerprint()
     previous_hash = None
