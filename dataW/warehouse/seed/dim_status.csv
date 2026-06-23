@@ -1,0 +1,6 @@
+1,Completed,order,Orden completada
+2,Cancelled,order,Orden cancelada
+3,Pending,order,Orden pendiente
+4,Confirmed,reservation,Reserva confirmada
+5,No Show,reservation,Cliente no asistio
+6,Cancelled,reservation,Reserva cancelada
