@@ -122,7 +122,7 @@ def wait_for_realm(max_retries=SEED_WAIT_RETRIES, delay=SEED_WAIT_DELAY_SECONDS)
 
     raise Exception(f"Realm '{KEYCLOAK_REALM}' no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
-def get_admin_token():
+def get_admin_token(max_retries=SEED_WAIT_RETRIES, delay=SEED_WAIT_DELAY_SECONDS):
     url = f"{KEYCLOAK_URL}/realms/master/protocol/openid-connect/token"
 
     data = {
@@ -132,9 +132,20 @@ def get_admin_token():
         "grant_type": "password",
     }
 
-    response = requests.post(url, data=data, timeout=10)
-    response.raise_for_status()
-    return response.json()["access_token"]
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(url, data=data, timeout=10)
+            if response.status_code == 200:
+                return response.json()["access_token"]
+            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+        except requests.exceptions.RequestException as exc:
+            last_error = str(exc)
+
+        print(f"Esperando token admin de Keycloak... intento {attempt}/{max_retries}. Ultimo estado: {last_error}")
+        time.sleep(delay)
+
+    raise Exception(f"Token admin de Keycloak no estuvo listo a tiempo. Ultimo estado: {last_error}")
 
 
 def get_or_create_keycloak_user(token):
