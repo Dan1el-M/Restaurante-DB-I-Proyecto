@@ -55,6 +55,7 @@ Keycloak puede tardar varios minutos en el primer arranque porque importa el rea
 - API directa: `http://localhost:8000/docs`
 - Keycloak Admin: `http://localhost:8001/admin/master/console/`
 - Elasticsearch: `http://localhost:9200`
+- Neo4J Browser: `http://localhost:7474`
 - MongoDB: `mongodb://localhost:27017`
 - PostgreSQL: `localhost:5432`
 
@@ -63,6 +64,26 @@ Credenciales por defecto desde `.env`:
 - Keycloak admin: `admin` / `admin`
 - Usuario seed de la app: `admin` / `admin`
 - PostgreSQL: `postgres` / `postgres123`
+- Neo4J: `neo4j` / `restaurant123`
+
+## Neo4J Y Rutas De Entrega
+
+El Punto 5 y el Punto 6 estan en `neo4j/`. Para validar la asignacion de rutas sin servicios externos:
+
+```powershell
+python .\neo4j\delivery_assignment.py
+```
+
+Para usar Neo4J con datos reales del proyecto:
+
+```powershell
+docker compose up -d neo4j api_direct
+python .\neo4j\load_graph.py --source api
+python .\neo4j\assign_routes.py
+python .\neo4j\test_delivery_routes.py
+```
+
+Las consultas de evidencia estan en `neo4j/delivery_assignment_queries.cypher`.
 
 ## Seed Del Admin
 
