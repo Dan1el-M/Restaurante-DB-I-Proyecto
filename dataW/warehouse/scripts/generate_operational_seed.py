@@ -13,6 +13,7 @@ from urllib.request import urlopen
 
 OUTPUT_PATH = Path(os.getenv("WAREHOUSE_SEED_OUTPUT", "/workspace/warehouse/generated/operational_seed.hql"))
 API_URL = os.getenv("WAREHOUSE_API_EXPORT_URL", "http://api/graph/export")
+ALLOW_FALLBACK = os.getenv("ALLOW_WAREHOUSE_SEED_FALLBACK", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
 ZONES = ["Central", "Oeste", "Este", "Norte", "Sur"]
 
 
@@ -285,8 +286,15 @@ def build_hql(payload: dict) -> str:
 
 def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = fetch_export()
-    hql = build_hql(payload)
+    try:
+        payload = fetch_export()
+        hql = build_hql(payload)
+    except Exception as exc:
+        if ALLOW_FALLBACK and OUTPUT_PATH.exists() and "INSERT INTO fact_orders" in OUTPUT_PATH.read_text(encoding="utf-8"):
+            print(f"[WARN] Could not regenerate operational Hive seed from {API_URL}: {exc}")
+            print(f"[WARN] Keeping existing seed at {OUTPUT_PATH}")
+            return
+        raise
     OUTPUT_PATH.write_text(hql, encoding="utf-8")
     print(f"[OK] Operational Hive seed generated at {OUTPUT_PATH}")
 

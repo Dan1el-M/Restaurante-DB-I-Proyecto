@@ -578,11 +578,15 @@ services:
     environment:
       WAREHOUSE_API_EXPORT_URL: ${WAREHOUSE_API_EXPORT_URL:-http://api/graph/export}
       WAREHOUSE_SEED_OUTPUT: /workspace/warehouse/generated/operational_seed.hql
+      ALLOW_WAREHOUSE_SEED_FALLBACK: ${ALLOW_WAREHOUSE_SEED_FALLBACK:-true}
     volumes:
       - ./dataW/warehouse:/workspace/warehouse
     command: python /workspace/warehouse/scripts/generate_operational_seed.py
     depends_on:
-      - api
+      api:
+        condition: service_started
+      seed:
+        condition: service_completed_successfully
     networks:
       - restaurant-network
     restart: "no"
