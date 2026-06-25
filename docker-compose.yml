@@ -57,6 +57,8 @@ x-airflow-common: &airflow-common
     REINDEX_ON_FIRST_RUN: ${REINDEX_ON_FIRST_RUN:-false}
     SEARCH_REINDEX_URL: ${SEARCH_REINDEX_URL:-http://search/reindex}
     SEARCH_AUTH_TOKEN: ${SEARCH_AUTH_TOKEN:-}
+    ENABLE_DELIVERY_ROUTE_VALIDATION: ${ENABLE_DELIVERY_ROUTE_VALIDATION:-false}
+    AIRFLOW_POINT6_SCRIPT: /opt/airflow/neo4j/delivery_assignment.py
     SPARK_IMAGE: ${SPARK_IMAGE:-apache/spark:3.5.5-scala2.12-java17-python3-ubuntu}
     SPARK_MASTER_URL: spark://spark-master:7077
     SPARK_SCALE_FACTOR: ${SPARK_SCALE_FACTOR:-1000}
@@ -67,6 +69,7 @@ x-airflow-common: &airflow-common
     - ./dataW/airflow/logs:/opt/airflow/logs
     - ./dataW/airflow/plugins:/opt/airflow/plugins
     - ./dataW/airflow/state:/opt/airflow/state
+    - ./neo4j:/opt/airflow/neo4j:ro
     - /var/run/docker.sock:/var/run/docker.sock
   user: "0:0"
   networks:
@@ -578,11 +581,15 @@ services:
     environment:
       WAREHOUSE_API_EXPORT_URL: ${WAREHOUSE_API_EXPORT_URL:-http://api/graph/export}
       WAREHOUSE_SEED_OUTPUT: /workspace/warehouse/generated/operational_seed.hql
+      ALLOW_WAREHOUSE_SEED_FALLBACK: ${ALLOW_WAREHOUSE_SEED_FALLBACK:-true}
     volumes:
       - ./dataW/warehouse:/workspace/warehouse
     command: python /workspace/warehouse/scripts/generate_operational_seed.py
     depends_on:
-      - api
+      api:
+        condition: service_started
+      seed:
+        condition: service_completed_successfully
     networks:
       - restaurant-network
     restart: "no"

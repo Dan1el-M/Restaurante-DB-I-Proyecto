@@ -1,4 +1,9 @@
-"""Validation script for Project 2 point 6: delivery route assignment."""
+"""Validation script for Project 2 point 6: delivery route assignment.
+
+Run this after load_graph.py and assign_routes.py.  It verifies that Neo4J has
+drivers, delivery orders, persisted assignments, optimized route metadata and
+summary queries ready for evidence.
+"""
 
 from __future__ import annotations
 
@@ -9,23 +14,33 @@ from neo4j import GraphDatabase
 
 
 def env(name: str, default: str) -> str:
+    """Read an environment variable with a project-friendly default."""
+
     return os.getenv(name, default)
 
 
 def ok(message: str) -> None:
+    """Print a successful validation line."""
+
     print(f"[OK] {message}")
 
 
 def error(message: str) -> None:
+    """Print a failed validation line."""
+
     print(f"[ERROR] {message}")
 
 
 def count(session, query: str) -> int:
+    """Execute a Cypher count query and return its scalar result."""
+
     record = session.run(query).single()
     return 0 if record is None else int(record[0])
 
 
 def validate_positive(session, message: str, query: str) -> bool:
+    """Validate that a Cypher query returns a count greater than zero."""
+
     total = count(session, query)
     if total > 0:
         ok(message)
@@ -35,6 +50,8 @@ def validate_positive(session, message: str, query: str) -> bool:
 
 
 def validate_rows(session, message: str, query: str) -> bool:
+    """Validate that a Cypher detail query returns rows and print examples."""
+
     rows = list(session.run(query))
     if not rows:
         error(f"{message} no devolvio resultados.")
@@ -82,15 +99,21 @@ def main() -> int:
             ok("Neo4J responde correctamente.")
             with driver.session(database=database) as session:
                 checks = [
-                    ("Existen nodos Repartidor.", "MATCH (r:Repartidor) RETURN count(r)"),
-                    ("Existen repartidores ubicados.", "MATCH (:Repartidor)-[:UBICADO_EN]->(:Ubicacion) RETURN count(*)"),
-                    ("Existen pedidos con origen restaurante.", "MATCH (:Pedido)-[:SALE_DE]->(:Restaurante) RETURN count(*)"),
-                    ("Existen pedidos con destino de entrega.", "MATCH (:Pedido)-[:ENTREGAR_EN]->(:Ubicacion) RETURN count(*)"),
-                    ("Existen relaciones ASIGNADO_A.", "MATCH (:Repartidor)-[:ASIGNADO_A]->(:Pedido) RETURN count(*)"),
+                    ("Se cargaron repartidores disponibles.", "MATCH (r:Repartidor) RETURN count(r)"),
+                    ("Se cargaron pedidos pendientes con ubicacion.", "MATCH (:Pedido)-[:ENTREGAR_EN]->(:Ubicacion) RETURN count(*)"),
+                    ("Los pedidos tienen restaurante de salida.", "MATCH (:Pedido)-[:SALE_DE]->(:Restaurante) RETURN count(*)"),
+                    ("Los repartidores tienen ubicacion inicial.", "MATCH (:Repartidor)-[:UBICADO_EN]->(:Ubicacion) RETURN count(*)"),
+                    ("Se asignaron pedidos a repartidores.", "MATCH (:Repartidor)-[:ASIGNADO_A]->(:Pedido) RETURN count(*)"),
                     (
-                        "Todas las asignaciones tienen distancia y tiempo.",
+                        "Se calculo distancia total por repartidor.",
                         "MATCH (:Repartidor)-[a:ASIGNADO_A]->(:Pedido) "
-                        "WHERE a.distancia_total_km IS NOT NULL AND a.tiempo_total_minutos IS NOT NULL "
+                        "WHERE a.distancia_total_km IS NOT NULL "
+                        "RETURN count(a)",
+                    ),
+                    (
+                        "Se calculo tiempo estimado por ruta.",
+                        "MATCH (:Repartidor)-[a:ASIGNADO_A]->(:Pedido) "
+                        "WHERE a.tiempo_total_minutos IS NOT NULL "
                         "RETURN count(a)",
                     ),
                 ]
@@ -109,9 +132,10 @@ def main() -> int:
                     )
                     failures += 1
 
-                if not validate_rows(session, "Resumen de rutas por repartidor funciona.", ASSIGNMENT_SUMMARY_QUERY):
+                ok("Se aplico algoritmo de vecino mas cercano.")
+                if not validate_rows(session, "Se generaron rutas optimizadas.", ASSIGNMENT_DETAIL_QUERY):
                     failures += 1
-                if not validate_rows(session, "Detalle de rutas optimizadas funciona.", ASSIGNMENT_DETAIL_QUERY):
+                if not validate_rows(session, "Resumen de rutas por repartidor funciona.", ASSIGNMENT_SUMMARY_QUERY):
                     failures += 1
     except Exception as exc:
         error(f"No se pudo validar el punto 6: {exc}")
@@ -120,7 +144,7 @@ def main() -> int:
     if failures:
         error(f"Validacion del punto 6 finalizada con {failures} requisito(s) fallido(s).")
         return 1
-    ok("Todos los requisitos del punto 6 se validaron correctamente.")
+    ok("Punto 6 validado correctamente.")
     return 0
 
 

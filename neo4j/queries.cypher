@@ -41,9 +41,10 @@ RETURN usuario.nombre AS usuario,
 ORDER BY total_recomendaciones DESC, usuario;
 
 // D. Camino minimo entre ubicaciones para reparto eficiente
-// Cambiar los parametros segun la ruta que se quiera demostrar.
-:param origen => 'U_REST_CENTRAL';
-:param destino => 'U_OESTE';
+// Cambiar los parametros segun los id_ubicacion cargados por load_graph.py.
+// Ejemplos usuales: REST_1, REST_2, USER_1, USER_2.
+:param origen => 'REST_1';
+:param destino => 'USER_1';
 
 MATCH (origen:Ubicacion {id_ubicacion: $origen})
 MATCH (destino:Ubicacion {id_ubicacion: $destino})

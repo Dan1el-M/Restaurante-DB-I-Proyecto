@@ -80,6 +80,8 @@ Variables configurables:
 - `ALLOW_REINDEX_UNAVAILABLE`: permite continuar si Search requiere auth o no esta arriba. Default: `true`.
 - `SEARCH_REINDEX_URL`: endpoint Docker para reindex. Default: `http://search/reindex`.
 - `SEARCH_AUTH_TOKEN`: token Bearer opcional para reindexado.
+- `ENABLE_DELIVERY_ROUTE_VALIDATION`: ejecuta la validacion local del Punto 6 dentro del DAG. Default: `false`.
+- `AIRFLOW_POINT6_SCRIPT`: ruta del script de rutas dentro del contenedor. Default: `/opt/airflow/neo4j/delivery_assignment.py`.
 
 ## DAG principal
 
@@ -115,6 +117,7 @@ start
   -> run_spark_transformations
   -> load_to_data_warehouse
   -> validate_warehouse
+  -> validate_delivery_routes_optional
   -> check_product_catalog_changes
   -> reindex_elasticsearch_if_needed / skip_reindex
   -> finish
@@ -126,6 +129,7 @@ start
 - `run_spark_transformations`: ejecuta el job PySpark existente del punto 2 usando el cluster Spark del compose.
 - `load_to_data_warehouse`: crea/actualiza schema, seed y vistas OLAP en Hive. Evita duplicar seed si `fact_orders` ya tiene datos.
 - `validate_warehouse`: ejecuta consultas reales en Hive para validar hechos y cubos OLAP.
+- `validate_delivery_routes_optional`: por defecto solo registra skip; con `ENABLE_DELIVERY_ROUTE_VALIDATION=true` ejecuta la demo local del Punto 6.
 - `check_product_catalog_changes`: calcula hash de `dim_product` y decide si cambio el catalogo.
 - `reindex_elasticsearch_if_needed`: llama `POST http://search/reindex` si el catalogo cambio o si se fuerza.
 - `skip_reindex`: rama limpia si no hay cambios de catalogo.
@@ -184,6 +188,17 @@ Luego probar en SQL Lab:
 ```sql
 SELECT * FROM cubo_ingresos_mes_categoria LIMIT 5;
 ```
+
+## Validar Punto 6 desde Airflow
+
+La tarea opcional no toca Neo4J ni el warehouse. Ejecuta la heuristica local de `neo4j/delivery_assignment.py` con datos simulados para dejar evidencia del Punto 6 dentro del DAG:
+
+```powershell
+$env:ENABLE_DELIVERY_ROUTE_VALIDATION="true"
+docker compose up -d --build airflow-init airflow-webserver airflow-scheduler
+```
+
+En los logs de `validate_delivery_routes_optional` deben verse mensajes `[OK]` de repartidores, pedidos, vecino mas cercano, rutas y tiempos.
 
 ## Prueba automatizada
 

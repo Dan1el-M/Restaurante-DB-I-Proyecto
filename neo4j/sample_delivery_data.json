@@ -1,0 +1,78 @@
+{
+  "locations": [
+    {
+      "id": "REST_TEC",
+      "name": "Restaurante TEC",
+      "latitude": 9.8563,
+      "longitude": -83.9127
+    },
+    {
+      "id": "CARTAGO_CENTRO",
+      "name": "Cartago Centro",
+      "latitude": 9.8644,
+      "longitude": -83.9194
+    },
+    {
+      "id": "SAN_RAFAEL",
+      "name": "San Rafael",
+      "latitude": 9.8736,
+      "longitude": -83.9032
+    },
+    {
+      "id": "PARAISO",
+      "name": "Paraiso",
+      "latitude": 9.8383,
+      "longitude": -83.8656
+    },
+    {
+      "id": "TRES_RIOS",
+      "name": "Tres Rios",
+      "latitude": 9.9066,
+      "longitude": -83.9875
+    }
+  ],
+  "couriers": [
+    {
+      "id": 1,
+      "name": "Carlos",
+      "start_location_id": "REST_TEC",
+      "capacity_orders": 3
+    },
+    {
+      "id": 2,
+      "name": "Mariana",
+      "start_location_id": "REST_TEC",
+      "capacity_orders": 2
+    }
+  ],
+  "orders": [
+    {
+      "id": 101,
+      "restaurant_location_id": "REST_TEC",
+      "customer_location_id": "CARTAGO_CENTRO",
+      "customer_name": "Cliente Cartago Centro",
+      "status": "pendiente"
+    },
+    {
+      "id": 103,
+      "restaurant_location_id": "REST_TEC",
+      "customer_location_id": "SAN_RAFAEL",
+      "customer_name": "Cliente San Rafael",
+      "status": "pendiente"
+    },
+    {
+      "id": 104,
+      "restaurant_location_id": "REST_TEC",
+      "customer_location_id": "PARAISO",
+      "customer_name": "Cliente Paraiso",
+      "status": "pendiente"
+    },
+    {
+      "id": 105,
+      "restaurant_location_id": "REST_TEC",
+      "customer_location_id": "TRES_RIOS",
+      "customer_name": "Cliente Tres Rios",
+      "status": "pendiente"
+    }
+  ]
+}
