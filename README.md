@@ -1,5 +1,6 @@
 # Restaurante-DB-I-Proyecto
 
+
 API REST para gestion de restaurantes, reservas, menus y usuarios. El proyecto incluye FastAPI, autenticacion con Keycloak, PostgreSQL, MongoDB shardeado, Redis, Elasticsearch, Nginx y scripts para Docker Compose y Kubernetes.
 
 ## Requisitos
