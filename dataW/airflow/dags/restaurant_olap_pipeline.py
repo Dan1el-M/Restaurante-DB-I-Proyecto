@@ -11,6 +11,7 @@ from airflow.operators.python import BranchPythonOperator, PythonOperator
 
 
 SCRIPTS_DIR = Path(os.getenv("AIRFLOW_POINT4_SCRIPTS_DIR", "/opt/airflow/scripts"))
+POINT6_SCRIPT = Path(os.getenv("AIRFLOW_POINT6_SCRIPT", "/opt/airflow/neo4j/delivery_assignment.py"))
 
 
 def run_script(script_name: str) -> str:
@@ -39,6 +40,22 @@ def load_to_data_warehouse_callable() -> None:
 
 def validate_warehouse_callable() -> None:
     run_script("validate_warehouse.py")
+
+
+def validate_delivery_routes_callable() -> None:
+    """Optionally run the standalone point 6 route assignment validation."""
+
+    enabled = os.getenv("ENABLE_DELIVERY_ROUTE_VALIDATION", "false").lower() in {"1", "true", "yes"}
+    if not enabled:
+        print("Skipping optional point 6 route validation. Set ENABLE_DELIVERY_ROUTE_VALIDATION=true to run it.")
+        return
+    command = ["python", str(POINT6_SCRIPT)]
+    print(f"Executing point 6 script: {' '.join(command)}")
+    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    output = (completed.stdout or "") + (completed.stderr or "")
+    print(output)
+    if completed.returncode != 0:
+        raise RuntimeError(f"Point 6 route validation failed with exit code {completed.returncode}")
 
 
 def check_product_catalog_changes_callable() -> str:
@@ -91,6 +108,11 @@ with DAG(
         python_callable=validate_warehouse_callable,
     )
 
+    validate_delivery_routes = PythonOperator(
+        task_id="validate_delivery_routes_optional",
+        python_callable=validate_delivery_routes_callable,
+    )
+
     check_product_catalog_changes = BranchPythonOperator(
         task_id="check_product_catalog_changes",
         python_callable=check_product_catalog_changes_callable,
@@ -111,6 +133,7 @@ with DAG(
         >> run_spark_transformations
         >> load_to_data_warehouse
         >> validate_warehouse
+        >> validate_delivery_routes
         >> check_product_catalog_changes
         >> [reindex_elasticsearch_if_needed, skip_reindex]
         >> finish

@@ -386,10 +386,14 @@ def build_edges(locations: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def build_repartidores(data: GraphData) -> list[dict[str, Any]]:
+    """Create available drivers from real users with enough capacity for the demo."""
+
     admins = [user for user in data.users if str(user.get("role_name", "")).lower() == "admin"]
     source_users = admins or data.users[: max(1, min(3, len(data.users)))]
+    selected_users = source_users[:3]
+    capacity = max(4, math.ceil(len(data.orders) / max(1, len(selected_users))))
     repartidores = []
-    for index, user in enumerate(source_users[:3], start=1):
+    for index, user in enumerate(selected_users, start=1):
         restaurant = data.restaurants[(index - 1) % len(data.restaurants)]
         repartidores.append(
             {
@@ -397,7 +401,7 @@ def build_repartidores(data: GraphData) -> list[dict[str, Any]]:
                 "nombre": f"Repartidor {user['user_name']}",
                 "zona": zone_for_id(int(restaurant["restaurant_id"])),
                 "estado": "disponible",
-                "capacidad_pedidos": 4,
+                "capacidad_pedidos": capacity,
                 "id_ubicacion_actual": location_id("REST", int(restaurant["restaurant_id"])),
             }
         )
@@ -475,8 +479,11 @@ def load_restaurantes(session, rows: list[dict[str, Any]]) -> None:
 
 
 def load_pedidos(session, rows: list[dict[str, Any]]) -> None:
+    """Load orders and mark them as pending for delivery-route assignment."""
+
     for row in rows:
         row["estado"] = "Completed"
+        row["estado_entrega"] = "pendiente"
         row["fecha"] = "2026-01-01"
         row["total"] = money(row.get("total"))
         row["id_destino"] = location_id("USER", int(row["client_id"]))
@@ -489,6 +496,7 @@ def load_pedidos(session, rows: list[dict[str, Any]]) -> None:
         MERGE (p:Pedido {id_pedido: toInteger(row.order_id)})
         SET p.fecha = date(row.fecha),
             p.estado = row.estado,
+            p.estado_entrega = row.estado_entrega,
             p.tipo = row.order_type,
             p.total = toFloat(row.total)
         MERGE (u)-[:REALIZO]->(p)

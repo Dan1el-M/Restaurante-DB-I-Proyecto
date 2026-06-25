@@ -299,6 +299,15 @@ def test_menus_tables_orders_reservations_and_search_integration(
     assert category_response.status_code == 200
     assert any(item["menu_id"] == menu["menu_id"] for item in category_response.json())
 
+    graph_response = api_client.get("/graph/export")
+    assert graph_response.status_code == 200, graph_response.text
+    graph_data = graph_response.json()
+    assert {"roles", "users", "restaurants", "products", "orders", "order_items"} <= graph_data.keys()
+    assert any(item["user_id"] == customer["user_id"] and item["role_name"] for item in graph_data["users"])
+    assert any(item["restaurant_id"] == restaurant["restaurant_id"] for item in graph_data["restaurants"])
+    assert any(item["menu_id"] == menu["menu_id"] for item in graph_data["products"])
+    assert any(item["order_id"] == order["order_id"] and "total" in item for item in graph_data["orders"])
+
     delete_menu = api_client.delete(f"/menus/{menu['menu_id']}", headers=admin_headers)
     assert delete_menu.status_code == 204
 
