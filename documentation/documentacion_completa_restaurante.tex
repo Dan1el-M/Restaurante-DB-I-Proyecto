@@ -1,0 +1,1993 @@
+\documentclass[12pt,letterpaper]{article}
+
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{xurl}
+
+\geometry{margin=2.4cm}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!55!black,
+    urlcolor=blue!55!black,
+    citecolor=blue!55!black
+}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codeframe}{RGB}{220,220,220}
+\definecolor{restblue}{RGB}{10,43,120}
+
+\lstdefinelanguage{json}{
+    basicstyle=\ttfamily\small,
+    showstringspaces=false,
+    breaklines=true,
+    morestring=[b]",
+    stringstyle=\color{blue!50!black},
+    literate=
+     *{0}{{{\color{black}0}}}{1}
+      {1}{{{\color{black}1}}}{1}
+      {2}{{{\color{black}2}}}{1}
+      {3}{{{\color{black}3}}}{1}
+      {4}{{{\color{black}4}}}{1}
+      {5}{{{\color{black}5}}}{1}
+      {6}{{{\color{black}6}}}{1}
+      {7}{{{\color{black}7}}}{1}
+      {8}{{{\color{black}8}}}{1}
+      {9}{{{\color{black}9}}}{1}
+      {:}{{{\color{black}:}}}{1}
+      {,}{{{\color{black},}}}{1}
+      {\{}{{{\color{black}\{}}}{1}
+      {\}}{{{\color{black}\}}}}{1}
+      {[}{{{\color{black}[}}}{1}
+      {]}{{{\color{black}]}}}{1},
+}
+
+\lstdefinelanguage{bash}{
+    keywords={docker,compose,up,down,logs,python,pytest,powershell,ruby,bin,rails,true,false,SELECT,FROM,WHERE},
+    sensitive=true,
+    comment=[l]{\#},
+    morestring=[b]",
+}
+
+\lstdefinestyle{codestyle}{
+    backgroundcolor=\color{codebg},
+    frame=single,
+    rulecolor=\color{codeframe},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    columns=fullflexible,
+    showstringspaces=false,
+    tabsize=2
+}
+\lstset{style=codestyle}
+
+\setlist[itemize]{noitemsep,topsep=3pt}
+\setlist[enumerate]{noitemsep,topsep=3pt}
+\titleformat{\section}{\Large\bfseries\color{restblue}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.7em}{}
+
+\urlstyle{tt}
+
+\def\endpoint#1#2{\texttt{#1 #2}}
+
+\def\codefile#1{\nolinkurl{#1}}
+
+\def\endpointcell#1#2{%
+  \textbf{#1}\\
+  \codefile{#2}%
+}
+
+\def\methodget{\textbf{\color{blue!60!black}GET}}
+\def\methodpost{\textbf{\color{green!45!black}POST}}
+\def\methodput{\textbf{\color{orange!80!black}PUT}}
+\def\methoddelete{\textbf{\color{red!70!black}DELETE}}
+
+\title{
+    \textbf{Documentación Técnica Completa}\\
+    Sistema Distribuido de Restaurantes\\
+    \large FastAPI, Keycloak, PostgreSQL, MongoDB Sharding, Redis, Elasticsearch, Docker, Kubernetes y Plataforma Analítica \texttt{dataW}
+}
+\author{Cesar Gamboa \and Daniel Morera}
+\date{Junio 2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+Este documento consolida la documentación funcional, técnica y operativa del proyecto \textit{Restaurante-DB-I-Proyecto}. Describe la arquitectura física y lógica, el comportamiento de cada servicio, las tecnologías utilizadas, los contratos de API, los modelos de datos, los flujos de información y la carpeta \codefile{dataW}, que implementa el componente analítico con Hive, Spark, Superset y Airflow. La documentación está basada en los archivos del repositorio, los diagramas y los requerimientos del proyecto.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Resumen del Programa}
+
+El proyecto implementa una plataforma distribuida para gestionar restaurantes, usuarios, menús, mesas, pedidos, reservaciones, búsqueda de productos y análisis de datos. El sistema se divide en dos grandes dominios:
+
+\begin{itemize}
+    \item \textbf{Dominio transaccional}: API REST en FastAPI, autenticación con Keycloak, persistencia seleccionable entre PostgreSQL y MongoDB shardeado, caché con Redis, búsqueda con Elasticsearch y entrada unificada con Nginx.
+    \item \textbf{Dominio analítico}: carpeta \codefile{dataW}, que contiene un Data Warehouse en Hive, procesamiento con Spark, dashboards en Superset y orquestación con Airflow.
+\end{itemize}
+
+El sistema corre principalmente sobre Docker Compose. También se incluye una definición de despliegue Kubernetes para los servicios principales. La API puede trabajar contra PostgreSQL o MongoDB según la variable \codefile{DATABASE\_ENGINE}, manteniendo una capa DAO común para desacoplar rutas y persistencia.
+
+\section{Cómo leer esta documentación}
+
+Esta documentación está organizada con un estilo similar a un portal de documentación para desarrolladores, se tomo como referencia la wed oficial de Spotify. Primero se presenta una visión general, luego una guía de inicio, conceptos clave, guías prácticas y finalmente una referencia de API detallada. En la documentación oficial de Spotify, la Web API separa \textit{Overview}, \textit{Getting started}, \textit{Concepts}, \textit{Tutorials}, \textit{How-Tos} y \textit{Reference}; cada endpoint de referencia muestra método, ruta, autenticación, parámetros, respuesta y códigos de error.
+
+\subsection{Mapa de navegación}
+
+\begin{longtable}{p{0.24\textwidth}p{0.66\textwidth}}
+\toprule
+\textbf{Sección} & \textbf{Qué resuelve}\\
+\midrule
+\textbf{Overview} & Explica qué es el sistema, qué problema resuelve y cuáles son sus componentes.\\
+\textbf{Getting started} & Indica cómo levantar el proyecto, obtener token y hacer la primera llamada.\\
+\textbf{Concepts} & Define tokens, roles, motores de base de datos, caché, búsqueda, sharding y pipeline analítico.\\
+\textbf{How-Tos} & Muestra tareas comunes: registrar usuario, crear restaurante, reindexar búsqueda, correr Airflow y validar \codefile{dataW}.\\
+\textbf{Reference} & Documenta cada endpoint con request, parámetros, body, respuesta, errores e interpretación.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Convención de bloques de API}
+
+Cada endpoint se documenta con la siguiente plantilla:
+
+\begin{itemize}
+    \item \textbf{Endpoint}: método HTTP y ruta.
+    \item \textbf{Descripción}: propósito funcional.
+    \item \textbf{Autenticación}: si requiere token y qué rol necesita.
+    \item \textbf{Request}: path params, query params, headers y body.
+    \item \textbf{Response}: códigos esperados y estructura de salida.
+    \item \textbf{Errores}: significado de cada caso de fallo.
+    \item \textbf{Interacción interna}: servicios que toca: Keycloak, DAO, Redis, Elasticsearch, PostgreSQL, MongoDB, Hive o Neo4J.
+\end{itemize}
+
+\section{Objetivos del sistema}
+
+\subsection{Objetivo general}
+
+Construir una plataforma distribuida de gestión de restaurantes que permita administrar entidades operacionales, autenticar usuarios por roles, ofrecer búsqueda textual eficiente, cachear datos consultados con frecuencia y generar análisis OLAP mediante un flujo de datos completo.
+
+\subsection{Objetivos específicos}
+
+\begin{enumerate}
+    \item Exponer una API REST segura para autenticación, usuarios, restaurantes, menús, mesas, pedidos y reservaciones.
+    \item Permitir el uso intercambiable de PostgreSQL o MongoDB como motor activo de persistencia.
+    \item Implementar MongoDB en modo shardeado con config servers, shard replica set y router \codefile{mongos}.
+    \item Integrar Keycloak para registro, login, emisión y validación de tokens JWT.
+    \item Utilizar Redis para reducir accesos repetidos a la base de datos y a Elasticsearch.
+    \item Utilizar Elasticsearch para búsqueda textual sobre productos del menú.
+    \item Publicar servicios detrás de Nginx mediante rutas \codefile{/api} y \codefile{/search}.
+    \item Construir un Data Warehouse OLAP con esquema estrella en Hive.
+    \item Procesar datos con Spark usando DataFrames y SparkSQL.
+    \item Visualizar indicadores en Superset.
+    \item Orquestar el pipeline analítico con Airflow.
+    \item Modelar y validar asignación de rutas con Neo4J y una heurística de vecino más cercano.
+\end{enumerate}
+
+\section{Fuentes documentales y artefactos base}
+
+Esta documentación consolida información técnica del repositorio y de los artefactos ubicados en \codefile{documentation/}. Los documentos y diagramas base son:
+
+\begin{itemize}
+    \item \codefile{documentation/\_BD2\_PY01\_\_Restaurantes.pdf}: enunciado/guía de la primera etapa del proyecto.
+    \item \codefile{documentation/\_BD2\_PY02\_\_Restaurantes\_2.pdf}: enunciado/guía de la segunda etapa del proyecto.
+    \item \codefile{documentation/\_BD2\_TC01b\_\_Docker\_y\_RestAPI.pdf}: material de referencia sobre Docker y REST API.
+    \item \codefile{documentation/Restaurantes e2 - Cesar Gamboa, Daniel Morera.pdf}: documento previo de entrega.
+    \item \codefile{documentation/Diagrama de arquitectura física.png}: diagrama físico incluido en la sección de arquitectura física.
+    \item \codefile{documentation/Diagrama de arquitectura lógica.png}: diagrama lógico incluido en la sección de arquitectura lógica.
+    \item \codefile{documentation/Diagrama de flujo de datos - Admin\_Menu.png}: flujo de creación de menú por administrador.
+    \item \codefile{documentation/Diagrama de flujo de datos - Cliente\_Búsqueda.png}: flujo de búsqueda de productos por cliente.
+    \item \codefile{documentation/Diagrama de flujo de datos - Cliente\_Reserva.png}: flujo de reservación por cliente.
+\end{itemize}
+
+\section{Getting started}
+
+Esta sección permite levantar el sistema y realizar una primera llamada autenticada. La idea es que cualquier persona nueva en el proyecto pueda pasar de cero a una petición funcional sin leer todavía toda la arquitectura.
+
+\subsection{Requisitos previos}
+
+\begin{itemize}
+    \item Docker Desktop con Docker Compose.
+    \item PowerShell en Windows.
+    \item Puertos disponibles: \codefile{5432}, \codefile{6379}, \codefile{8000}, \codefile{8001}, \codefile{8080}, \codefile{9200}, \codefile{27017}, \codefile{8088}, \codefile{8090}, \codefile{10000}.
+    \item Archivo \codefile{.env} en la raíz del proyecto.
+\end{itemize}
+
+\subsection{1. Levantar servicios}
+
+\begin{lstlisting}[language=bash]
+docker compose up -d --build
+\end{lstlisting}
+
+\subsection{2. Revisar estado}
+
+\begin{lstlisting}[language=bash]
+docker compose ps
+docker compose logs -f keycloak
+docker compose logs -f api
+\end{lstlisting}
+
+\subsection{3. Abrir documentación interactiva}
+
+\begin{itemize}
+    \item API directa: \codefile{http://localhost:8000/docs}
+    \item API por Nginx: \codefile{http://localhost:8080/api/docs}
+    \item Search por Nginx: \codefile{http://localhost:8080/search/docs}
+\end{itemize}
+
+\subsection{4. Obtener token}
+
+\begin{lstlisting}[language=bash]
+curl -X POST http://localhost:8000/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"admin\",\"password\":\"admin\"}"
+\end{lstlisting}
+
+La respuesta incluye \codefile{access\_token}. Ese token se usa como:
+
+\begin{lstlisting}
+Authorization: Bearer <access_token>
+\end{lstlisting}
+
+\subsection{5. Hacer primera llamada autenticada}
+
+\begin{lstlisting}[language=bash]
+curl http://localhost:8000/users/me ^
+  -H "Authorization: Bearer <access_token>"
+\end{lstlisting}
+
+Si el token es válido y el usuario existe en la base activa, la API responde con los datos locales del usuario.
+
+\section{Conceptos principales}
+
+\subsection{Access token}
+
+El \codefile{access\_token} es un JWT emitido por Keycloak. La API no acepta usuario y contraseña en cada endpoint; acepta un token firmado. El token identifica al usuario mediante el claim \codefile{sub} y contiene roles para autorización.
+
+\subsection{Roles}
+
+\begin{itemize}
+    \item \codefile{client}: usuario cliente. Puede consultar datos protegidos, buscar productos, crear pedidos y crear reservaciones.
+    \item \codefile{admin}: usuario administrador. Puede crear, actualizar y eliminar restaurantes, menús y mesas.
+\end{itemize}
+
+\subsection{Base URL}
+
+La misma API puede consumirse por dos caminos:
+
+\begin{itemize}
+    \item \textbf{Directo}: \codefile{http://localhost:8000}
+    \item \textbf{Proxy Nginx}: \codefile{http://localhost:8080/api}
+\end{itemize}
+
+El servicio de búsqueda se publica por Nginx como:
+
+\begin{itemize}
+    \item \codefile{http://localhost:8080/search}
+\end{itemize}
+
+\subsection{Motor activo de base de datos}
+
+La API usa un motor activo a la vez. La variable \codefile{DATABASE\_ENGINE} define si las operaciones se ejecutan sobre PostgreSQL o MongoDB. Los routers no cambian; lo que cambia es la implementación del DAO.
+
+\subsection{Cache hit y cache miss}
+
+Cuando se consulta una lista de menús o una búsqueda, Redis puede devolver una respuesta guardada:
+
+\begin{itemize}
+    \item \textbf{Cache hit}: Redis tenía el resultado y se evita consultar base o Elasticsearch.
+    \item \textbf{Cache miss}: Redis no tenía el resultado; la API consulta la fuente real y luego guarda la respuesta.
+\end{itemize}
+
+\subsection{Reindexado}
+
+El endpoint \codefile{POST /reindex} reconstruye el índice de Elasticsearch desde los menús de la base activa. Debe ejecutarse cuando hay cambios de catálogo que no fueron indexados automáticamente o cuando Airflow detecta cambios en \codefile{dim\_product}.
+
+\subsection{Data Warehouse}
+
+El Data Warehouse no reemplaza la base transaccional. Es una copia analítica en Hive optimizada para agregaciones, cubos y dashboards.
+
+\section{Estructura general del repositorio}
+
+\begin{longtable}{p{0.25\textwidth}p{0.68\textwidth}}
+\toprule
+\textbf{Ruta} & \textbf{Propósito}\\
+\midrule
+\codefile{backend/} & Código Python de la API FastAPI, modelos SQLAlchemy, esquemas Pydantic, routers, DAO, autenticación, caché y búsqueda.\\
+\codefile{dbs/postgres/} & Scripts de inicialización de PostgreSQL.\\
+\codefile{dbs/mongo/} & Scripts de inicialización del cluster shardeado MongoDB, colecciones, índices y shard keys.\\
+\codefile{nginx/} & Configuración de proxy reverso Nginx.\\
+\codefile{dataW/} & Plataforma analítica: Data Warehouse, Spark, Superset, Airflow, pruebas y evidencias.\\
+\codefile{neo4j/} & Carga de grafo, consultas Cypher y asignación de rutas de entrega.\\
+\codefile{kubernetes/} & Manifiestos YAML y scripts PowerShell para despliegue en Kubernetes local.\\
+\codefile{documentation/} & Diagramas, enunciados PDF y esta documentación LaTeX.\\
+\codefile{docker-compose.yml} & Orquestación local de servicios transaccionales, analíticos y de grafo.\\
+\codefile{README.md} & Guía rápida de ejecución, URLs, credenciales y pruebas.\\
+\bottomrule
+\end{longtable}
+
+\section{Arquitectura lógica}
+
+La arquitectura lógica representa las capas del sistema y sus responsabilidades.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{documentation/Diagrama de arquitectura lógica.png}
+    \caption{Arquitectura lógica del sistema.}
+\end{figure}
+
+\subsection{Capas}
+
+\begin{enumerate}
+    \item \textbf{Clientes}: aplicaciones web o clientes HTTP que consumen endpoints REST.
+    \item \textbf{Capa de presentación}: endpoints HTTP expuestos por FastAPI y publicados por Nginx.
+    \item \textbf{Capa de aplicación}: routers, validaciones de negocio, autenticación, autorización, caché y búsqueda.
+    \item \textbf{Capa de acceso a datos}: DAO común con implementaciones para PostgreSQL y MongoDB.
+    \item \textbf{Modelos de datos}: entidades transaccionales como usuarios, roles, restaurantes, menús, mesas, pedidos, ítems y reservaciones.
+    \item \textbf{Servicios externos}: Keycloak, Redis y Elasticsearch.
+    \item \textbf{Capa analítica}: Hive, Spark, Superset y Airflow dentro de \codefile{dataW}.
+\end{enumerate}
+
+\section{Arquitectura física}
+
+La arquitectura física define contenedores, red interna, puertos, servicios externos expuestos y volúmenes persistentes. Todos los contenedores principales se conectan a la red Docker \codefile{restaurant-network}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{documentation/Diagrama de arquitectura física.png}
+    \caption{Arquitectura física del sistema.}
+\end{figure}
+
+\subsection{Componentes físicos}
+
+Los puertos de la siguiente tabla corresponden a los valores por defecto de \codefile{docker-compose.yml}. Si se sobrescriben variables en \codefile{.env}, los puertos locales pueden cambiar. Cuando se indica \textit{interno}, significa que el servicio escucha dentro de la red Docker y normalmente se consume a través de Nginx u otro contenedor, no directamente desde el host.
+
+\begin{longtable}{p{0.22\textwidth}p{0.18\textwidth}p{0.48\textwidth}}
+\toprule
+\textbf{Servicio} & \textbf{Puerto local} & \textbf{Función}\\
+\midrule
+Nginx & \codefile{8080} & Entrada HTTP unificada. Redirige \codefile{/api/} hacia API y \codefile{/search/} hacia Search.\\
+API FastAPI & \codefile{8000} directo, interno \codefile{80} & Servicio transaccional principal.\\
+Search FastAPI & interno \codefile{80} & Microservicio especializado para búsqueda y reindexado.\\
+Keycloak & \codefile{8001} & Identidad, roles, emisión de JWT y consola administrativa.\\
+PostgreSQL & \codefile{5432} & Base relacional alternativa para datos transaccionales.\\
+MongoDB \codefile{mongos} & \codefile{27017} & Router del cluster shardeado MongoDB.\\
+Redis & \codefile{6379} & Caché de menús y búsquedas.\\
+Elasticsearch & \codefile{9200} & Índice textual de productos.\\
+Spark Master & \codefile{7077}, UI \codefile{8081} & Coordinador de procesamiento Spark.\\
+Spark Worker & UI \codefile{8082} & Ejecutor de tareas Spark.\\
+HiveServer2 & \codefile{10000}, UI \codefile{10002} & Data Warehouse OLAP.\\
+Superset & \codefile{8088} & Visualización BI y dashboards.\\
+Airflow & \codefile{8090} & Orquestación del pipeline analítico.\\
+Neo4J & \codefile{7474}, \codefile{7687} & Grafo y rutas de entrega.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Volúmenes persistentes}
+
+El sistema utiliza volúmenes Docker para conservar datos aunque se reinicien contenedores. Los más relevantes son:
+
+\begin{itemize}
+    \item \codefile{postgres\_data}: datos de PostgreSQL.
+    \item \codefile{cfg1\_data}, \codefile{cfg2\_data}, \codefile{cfg3\_data}: config servers de MongoDB.
+    \item \codefile{shard1a\_data}, \codefile{shard1b\_data}, \codefile{shard1c\_data}: shard replica set de MongoDB.
+    \item \codefile{redis\_data}: persistencia de Redis.
+    \item \codefile{elasticsearch\_data}: índice de Elasticsearch.
+    \item \codefile{hive\_data} y \codefile{hive\_metastore}: datos y metastore de Hive.
+    \item \codefile{superset\_home}: metadata y configuración de Superset.
+    \item \codefile{airflow\_postgres\_data}: metadata de Airflow.
+    \item \codefile{neo4j\_data}: base de datos de Neo4J.
+\end{itemize}
+
+\section{Tecnologías utilizadas}
+
+\subsection{FastAPI}
+
+FastAPI expone los endpoints REST. Usa Pydantic para validar entradas y salidas, dependencias para inyectar autenticación y DAO, y documentación automática OpenAPI en \codefile{/docs}. El proyecto usa dos aplicaciones principales:
+
+\begin{itemize}
+    \item \codefile{backend/app/api\_main.py}: API transaccional.
+    \item \codefile{backend/app/search\_main.py}: microservicio de búsqueda.
+\end{itemize}
+
+\subsection{Keycloak}
+
+Keycloak administra usuarios, roles y tokens JWT. El login se realiza contra el endpoint OpenID Connect de Keycloak usando \codefile{grant\_type=password}. Las rutas protegidas reciben el token en:
+
+\begin{lstlisting}
+Authorization: Bearer <access_token>
+\end{lstlisting}
+
+La API valida el JWT consultando las llaves públicas JWKS del realm configurado. Si el token es válido, el payload se usa para identificar al usuario y revisar roles. Los roles esperados son \codefile{admin} y \codefile{client}.
+
+\subsection{PostgreSQL}
+
+PostgreSQL funciona como motor relacional. Los modelos SQLAlchemy definen tablas, claves foráneas, relaciones y restricciones únicas. Se usa cuando:
+
+\begin{lstlisting}
+DATABASE_ENGINE=postgres
+\end{lstlisting}
+
+\subsection{MongoDB shardeado}
+
+MongoDB funciona como motor documental distribuido. El cluster se compone de:
+
+\begin{itemize}
+    \item Tres config servers: \codefile{cfg1}, \codefile{cfg2}, \codefile{cfg3}.
+    \item Un shard replica set: \codefile{shard1a}, \codefile{shard1b}, \codefile{shard1c}.
+    \item Un router: \codefile{mongos}.
+\end{itemize}
+
+La API no se conecta a los shards directamente, sino a:
+
+\begin{lstlisting}
+mongodb://mongos:27017/restaurant_mongo_db
+\end{lstlisting}
+
+Las colecciones shardeadas principales son:
+
+\begin{itemize}
+    \item \codefile{menus}: shard key \codefile{\{ restaurant\_id: 1, dish\_name: 1 \}}.
+    \item \codefile{reservations}: shard key \codefile{\{ reservation\_id: "hashed" \}}.
+\end{itemize}
+
+\subsection{Redis}
+
+Redis guarda respuestas frecuentes para reducir latencia:
+
+\begin{itemize}
+    \item Lista completa de menús: \codefile{menus:all}.
+    \item Menú individual: \codefile{menus:<id>}.
+    \item Búsquedas textuales: \codefile{search:products:text:<query>}.
+    \item Búsquedas por categoría: \codefile{search:products:category:<category>}.
+\end{itemize}
+
+El TTL general se controla con \codefile{CACHE\_TTL\_SECONDS}; el TTL de búsqueda se controla con \codefile{SEARCH\_CACHE\_TTL\_SECONDS}.
+
+\subsection{Elasticsearch}
+
+Elasticsearch indexa productos del menú en el índice \codefile{products}. Cada documento contiene:
+
+\begin{itemize}
+    \item \codefile{menu\_id}
+    \item \codefile{dish\_name}
+    \item \codefile{category}
+    \item \codefile{description}
+    \item \codefile{price}
+    \item \codefile{restaurant\_id}
+\end{itemize}
+
+Las búsquedas usan \codefile{multi\_match} sobre nombre, categoría y descripción. El filtro por categoría usa un campo keyword normalizado en minúsculas: \codefile{category.raw}.
+
+\subsection{Nginx}
+
+Nginx opera como proxy reverso. Publica:
+
+\begin{itemize}
+    \item \codefile{http://localhost:8080/api/} hacia el servicio \codefile{api}.
+    \item \codefile{http://localhost:8080/search/} hacia el servicio \codefile{search}.
+\end{itemize}
+
+\subsection{Docker Compose}
+
+Docker Compose levanta el ambiente completo. Además de los servicios transaccionales, integra Spark, Hive, Superset, Airflow y Neo4J. El comando base es:
+
+\begin{lstlisting}[language=bash]
+docker compose up -d --build
+\end{lstlisting}
+
+\subsection{Kubernetes}
+
+La carpeta \codefile{kubernetes/} contiene manifiestos para namespace, configmaps, servicios, deployments, storage e ingress. Su objetivo es reproducir los servicios principales fuera de Compose, usando scripts PowerShell de inicialización.
+
+\subsection{Apache Hive}
+
+Hive implementa el Data Warehouse. El esquema estrella vive en \codefile{dataW/warehouse/schemas/schema\_star.sql}. HiveServer2 permite que Superset y validaciones consulten la base \codefile{restaurant\_warehouse}.
+
+\subsection{Apache Spark}
+
+Spark procesa datos a escala. El job \codefile{dataW/spark/jobs/analytics\_job.py} crea DataFrames, aplica transformaciones, ejecuta SparkSQL y genera salidas CSV/JSON.
+
+\subsection{Apache Superset}
+
+Superset se conecta directamente a HiveServer2 mediante la conexión:
+
+\begin{lstlisting}
+hive://hive@hiveserver2:10000/restaurant_warehouse?auth=NOSASL
+\end{lstlisting}
+
+Su función es construir dashboards sobre vistas OLAP.
+
+\subsection{Apache Airflow}
+
+Airflow orquesta el pipeline analítico diario \codefile{restaurant\_olap\_pipeline}. Coordina extracción, Spark, carga a Hive, validación OLAP y reindexado opcional de Elasticsearch.
+
+\subsection{Neo4J}
+
+Neo4J modela usuarios, pedidos, productos, restaurantes, ubicaciones y repartidores como grafo. El punto de rutas usa una heurística de vecino más cercano para asignar pedidos a repartidores disponibles.
+
+\section{Configuración principal}
+
+Las variables se leen desde \codefile{.env} y desde el bloque común de \codefile{docker-compose.yml}.
+
+\begin{longtable}{p{0.33\textwidth}p{0.57\textwidth}}
+\toprule
+\textbf{Variable} & \textbf{Uso}\\
+\midrule
+\codefile{DATABASE\_ENGINE} & Selecciona \codefile{mongo} o \codefile{postgres}.\\
+\codefile{POSTGRES\_URL} & URL SQLAlchemy de PostgreSQL.\\
+\codefile{MONGO\_URL} & URL de conexión al router \codefile{mongos}.\\
+\codefile{KEYCLOAK\_URL} & URL interna o externa de Keycloak.\\
+\codefile{KEYCLOAK\_REALM} & Realm de Keycloak: \codefile{restaurant-realm}.\\
+\codefile{KEYCLOAK\_CLIENT\_ID} & Cliente OIDC usado por la API.\\
+\codefile{REDIS\_URL} & URL de Redis.\\
+\codefile{ELASTICSEARCH\_URL} & URL de Elasticsearch.\\
+\codefile{CACHE\_TTL\_SECONDS} & TTL de caché general.\\
+\codefile{SEARCH\_CACHE\_TTL\_SECONDS} & TTL de caché de búsqueda.\\
+\codefile{SPARK\_SCALE\_FACTOR} & Multiplicador de volumen para el job Spark.\\
+\codefile{AIRFLOW\_PORT} & Puerto de Airflow Webserver.\\
+\codefile{SUPERSET\_PORT} & Puerto de Superset.\\
+\codefile{ENABLE\_DELIVERY\_ROUTE\_VALIDATION} & Activa validación opcional de rutas en Airflow.\\
+\bottomrule
+\end{longtable}
+
+\section{Modelo de datos transaccional}
+
+\subsection{Entidades}
+
+\begin{longtable}{p{0.20\textwidth}p{0.70\textwidth}}
+\toprule
+\textbf{Entidad} & \textbf{Campos principales}\\
+\midrule
+\codefile{Role} & \codefile{role\_id}, \codefile{role\_name}.\\
+\codefile{User} & \codefile{user\_id}, \codefile{user\_name}, \codefile{keycloak\_id}, \codefile{role\_id}.\\
+\codefile{Restaurant} & \codefile{restaurant\_id}, \codefile{restaurant\_name}, \codefile{admin\_id}, \codefile{restaurant\_status}.\\
+\codefile{Menu} & \codefile{menu\_id}, \codefile{dish\_name}, \codefile{category}, \codefile{description}, \codefile{price}, \codefile{restaurant\_id}.\\
+\codefile{Table} & \codefile{table\_id}, \codefile{table\_number}, \codefile{table\_status}, \codefile{restaurant\_id}.\\
+\codefile{Order} & \codefile{order\_id}, \codefile{table\_id}, \codefile{client\_id}, \codefile{order\_type}, \codefile{restaurant\_id}.\\
+\codefile{OrderItem} & \codefile{order\_item\_id}, \codefile{order\_id}, \codefile{menu\_id}, \codefile{quantity}, \codefile{price}.\\
+\codefile{Reservation} & \codefile{reservation\_id}, \codefile{table\_id}, \codefile{client\_id}, \codefile{reservation\_date}, \codefile{reservation\_status}.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Restricciones relevantes}
+
+\begin{itemize}
+    \item En menús no puede repetirse el mismo \codefile{dish\_name} dentro del mismo restaurante.
+    \item En mesas no puede repetirse el mismo \codefile{table\_number} dentro del mismo restaurante.
+    \item \codefile{keycloak\_id} identifica al usuario en Keycloak y debe ser único si existe.
+    \item \codefile{table\_status} usa valores entre 0 y 2: ocupado, disponible o reservado, según la convención del código.
+    \item Las operaciones de creación validan claves foráneas lógicas antes de persistir.
+\end{itemize}
+
+\section{Capa DAO}
+
+La API usa \codefile{get\_dao()} para seleccionar una implementación concreta:
+
+\begin{itemize}
+    \item \codefile{PostgresDAO}: usa SQLAlchemy y sesiones transaccionales.
+    \item \codefile{MongoDAO}: usa PyMongo, colecciones y contadores para generar IDs incrementales.
+\end{itemize}
+
+Esto permite que los routers no conozcan el motor activo. Por ejemplo, \codefile{dao.create\_menu(...)} crea un documento en MongoDB o una fila en PostgreSQL según \codefile{DATABASE\_ENGINE}.
+
+\begin{lstlisting}[language=Python,caption={Selección conceptual del DAO activo.}]
+if DATABASE_ENGINE == "mongo":
+    yield MongoDAO(get_mongo_db())
+elif DATABASE_ENGINE == "postgres":
+    yield PostgresDAO(db)
+\end{lstlisting}
+
+\section{Autenticación y autorización}
+
+\subsection{Flujo de registro}
+
+El registro crea primero el usuario en Keycloak con rol \codefile{client}. Luego crea el usuario local en la base activa. Si la creación local falla, se intenta revertir eliminando el usuario creado en Keycloak.
+
+\subsection{Flujo de login}
+
+El login envía usuario y contraseña al endpoint OIDC de Keycloak. Si las credenciales son válidas, Keycloak responde con un JSON que incluye \codefile{access\_token}, \codefile{refresh\_token}, expiración y metadatos del token.
+
+\subsection{Validación de token}
+
+Cada ruta protegida usa \codefile{HTTPBearer}. La API:
+
+\begin{enumerate}
+    \item Extrae el token del header \codefile{Authorization}.
+    \item Consulta las llaves públicas JWKS de Keycloak.
+    \item Busca la llave con el \codefile{kid} del token.
+    \item Decodifica el JWT con algoritmo \codefile{RS256}.
+    \item Valida el \codefile{issuer}.
+    \item Devuelve el payload si todo es correcto.
+\end{enumerate}
+
+\subsection{Roles}
+
+\begin{itemize}
+    \item \textbf{client}: puede consultar recursos protegidos, crear pedidos y reservas.
+    \item \textbf{admin}: puede crear, actualizar y eliminar restaurantes, menús y mesas; también puede administrar usuarios cuando la lógica del endpoint lo permite.
+\end{itemize}
+
+\section{Convenciones generales de API}
+
+\subsection{Base URLs}
+
+\begin{itemize}
+    \item API por Nginx: \codefile{http://localhost:8080/api}
+    \item Search por Nginx: \codefile{http://localhost:8080/search}
+    \item API directa: \codefile{http://localhost:8000}
+    \item Documentación API directa: \codefile{http://localhost:8000/docs}
+    \item Documentación por Nginx: \codefile{http://localhost:8080/api/docs}
+\end{itemize}
+
+\subsection{Headers}
+
+Todas las rutas protegidas requieren:
+
+\begin{lstlisting}
+Authorization: Bearer <access_token>
+Content-Type: application/json
+\end{lstlisting}
+
+\subsection{Códigos de estado}
+
+\begin{longtable}{p{0.18\textwidth}p{0.72\textwidth}}
+\toprule
+\textbf{Código} & \textbf{Interpretación}\\
+\midrule
+\codefile{200} & Operación exitosa con cuerpo de respuesta.\\
+\codefile{201} & Recurso creado correctamente.\\
+\codefile{204} & Operación exitosa sin cuerpo, normalmente eliminación.\\
+\codefile{400} & Solicitud inválida o regla de negocio incumplida.\\
+\codefile{401} & Token ausente, inválido, expirado o credenciales incorrectas.\\
+\codefile{403} & Usuario autenticado sin permisos suficientes.\\
+\codefile{404} & Recurso o dependencia no encontrada.\\
+\codefile{409} & Conflicto de unicidad, por ejemplo plato o mesa duplicada.\\
+\codefile{422} & Error de validación Pydantic: tipos, rangos o campos requeridos.\\
+\codefile{500} & Error interno no controlado.\\
+\codefile{503} & Servicio externo no disponible o mal configurado, especialmente Keycloak.\\
+\bottomrule
+\end{longtable}
+
+\section{How-Tos}
+
+Los \textit{How-Tos} son guías cortas orientadas a tareas. A diferencia de la referencia, aquí importa el flujo completo.
+
+\subsection{Registrar un cliente}
+
+\begin{enumerate}
+    \item Enviar \endpoint{POST}{/auth/register} con \codefile{username}, \codefile{email} y \codefile{password}.
+    \item La API crea el usuario en Keycloak con rol \codefile{client}.
+    \item La API crea el usuario local en PostgreSQL o MongoDB.
+    \item La respuesta devuelve \codefile{user\_id} y \codefile{username}.
+\end{enumerate}
+
+\subsection{Crear un plato de menú}
+
+\begin{enumerate}
+    \item Iniciar sesión como administrador usando \endpoint{POST}{/auth/login}.
+    \item Enviar \endpoint{POST}{/menus/} con el token admin.
+    \item La API valida rol, restaurante existente y unicidad de plato por restaurante.
+    \item La API guarda el menú, borra \codefile{menus:all} y borra cachés \codefile{search:products:*}.
+\end{enumerate}
+
+\subsection{Buscar productos}
+
+\begin{enumerate}
+    \item Iniciar sesión como cliente o admin.
+    \item Ejecutar \endpoint{GET}{/products?q=pizza} en el servicio Search.
+    \item Redis se consulta primero.
+    \item Si no existe caché, Elasticsearch ejecuta \codefile{multi\_match}.
+    \item La respuesta se guarda en Redis y se devuelve al cliente.
+\end{enumerate}
+
+\subsection{Reindexar Elasticsearch}
+
+\begin{enumerate}
+    \item Enviar \endpoint{POST}{/reindex} con token válido.
+    \item El servicio Search recrea el índice \codefile{products}.
+    \item Consulta todos los menús desde el DAO activo.
+    \item Indexa cada producto y refresca el índice.
+    \item Elimina caché de búsqueda.
+\end{enumerate}
+
+\subsection{Ejecutar el pipeline analítico}
+
+\begin{enumerate}
+    \item Levantar Hive, Spark, Airflow y Superset con Docker Compose.
+    \item Abrir \codefile{http://localhost:8090}.
+    \item Activar y disparar el DAG \codefile{restaurant\_olap\_pipeline}.
+    \item Revisar \codefile{Grid} y logs de cada tarea.
+    \item Abrir Superset en \codefile{http://localhost:8088} para consultar dashboards.
+\end{enumerate}
+
+\section{API Reference}
+
+Esta sección usa el estilo de referencia de una documentación de plataforma: cada operación indica método, ruta, autenticación, parámetros, body, respuesta e interacción interna.
+
+\subsection{Auth}
+
+\subsubsection{\methodpost{} \codefile{/auth/register}}
+
+\textbf{Descripción}: registra un cliente nuevo.
+
+\textbf{Autenticación}: no requiere token.
+
+\textbf{Request body}
+\begin{longtable}{p{0.20\textwidth}p{0.18\textwidth}p{0.15\textwidth}p{0.37\textwidth}}
+\toprule
+\textbf{Campo} & \textbf{Tipo} & \textbf{Requerido} & \textbf{Descripción}\\
+\midrule
+\codefile{username} & string & Sí & 3 a 64 caracteres. Nombre único local.\\
+\codefile{email} & string & Sí & Email válido para Keycloak.\\
+\codefile{password} & string & Sí & 8 a 128 caracteres.\\
+\bottomrule
+\end{longtable}
+
+\textbf{Response 201}
+\begin{lstlisting}[language=json]
+{
+  "message": "Usuario creado correctamente",
+  "user_id": 2,
+  "username": "cliente1"
+}
+\end{lstlisting}
+
+\textbf{Errores}: \codefile{400} usuario duplicado; \codefile{503} Keycloak no configurado; \codefile{500} fallo creando usuario.
+
+\textbf{Interacción interna}: Keycloak Admin API, DAO activo, tabla/colección \codefile{users}, tabla/colección \codefile{roles}.
+
+\subsubsection{\methodpost{} \codefile{/auth/login}}
+
+\textbf{Descripción}: autentica credenciales contra Keycloak y devuelve tokens.
+
+\textbf{Autenticación}: no requiere token.
+
+\textbf{Request body}
+\begin{longtable}{p{0.20\textwidth}p{0.18\textwidth}p{0.15\textwidth}p{0.37\textwidth}}
+\toprule
+\textbf{Campo} & \textbf{Tipo} & \textbf{Requerido} & \textbf{Descripción}\\
+\midrule
+\codefile{username} & string & Sí & Usuario de Keycloak.\\
+\codefile{password} & string & Sí & Contraseña del usuario.\\
+\bottomrule
+\end{longtable}
+
+\textbf{Response 200}: objeto OIDC de Keycloak con \codefile{access\_token}, \codefile{refresh\_token}, expiración, tipo de token y scope.
+
+\textbf{Errores}: \codefile{401} credenciales inválidas; \codefile{403} acciones pendientes en Keycloak.
+
+\textbf{Interacción interna}: endpoint OIDC \codefile{/realms/<realm>/protocol/openid-connect/token}.
+
+\subsection{Users}
+
+\subsubsection{\methodget{} \codefile{/users/me}}
+
+\textbf{Descripción}: devuelve el usuario local asociado al token actual.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Headers}: \codefile{Authorization: Bearer <access\_token>}.
+
+\textbf{Response 200}
+\begin{lstlisting}[language=json]
+{
+  "user_name": "admin",
+  "role_id": 1,
+  "user_id": 1
+}
+\end{lstlisting}
+
+\textbf{Errores}: \codefile{401} token sin \codefile{sub}; \codefile{404} usuario no existe en base local.
+
+\textbf{Interacción interna}: validación JWKS contra Keycloak y consulta \codefile{get\_user\_by\_keycloak\_id}.
+
+\subsubsection{\methodput{} \codefile{/users/{user_id}}}
+
+\textbf{Descripción}: actualiza el perfil de un usuario.
+
+\textbf{Autenticación}: dueño del recurso o admin.
+
+\textbf{Path params}
+\begin{longtable}{p{0.20\textwidth}p{0.18\textwidth}p{0.52\textwidth}}
+\toprule
+\textbf{Parámetro} & \textbf{Tipo} & \textbf{Descripción}\\
+\midrule
+\codefile{user\_id} & integer & Identificador del usuario local.\\
+\bottomrule
+\end{longtable}
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "user_name": "nuevo_nombre"
+}
+\end{lstlisting}
+
+\textbf{Response 200}: \codefile{UserResponse}.
+
+\textbf{Errores}: \codefile{400} username ocupado; \codefile{403} no es dueño/admin o intenta cambiar rol; \codefile{404} usuario inexistente; \codefile{503} no se pudo sincronizar Keycloak.
+
+\textbf{Interacción interna}: Keycloak Admin API y DAO activo.
+
+\subsubsection{\methoddelete{} \codefile{/users/{user_id}}}
+
+\textbf{Descripción}: elimina cuenta local y usuario de Keycloak.
+
+\textbf{Autenticación}: dueño del recurso o admin.
+
+\textbf{Response 204}: sin body.
+
+\textbf{Errores}: \codefile{401}, \codefile{403}, \codefile{404}, \codefile{503}.
+
+\textbf{Interacción interna}: Keycloak Admin API y DAO activo.
+
+\subsection{Restaurants}
+
+\subsubsection{\methodget{} \codefile{/restaurants/}}
+
+\textbf{Descripción}: lista restaurantes.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}: arreglo de \codefile{RestaurantResponse}.
+
+\textbf{Interacción interna}: DAO activo.
+
+\subsubsection{\methodget{} \codefile{/restaurants/{restaurant_id}}}
+
+\textbf{Descripción}: obtiene un restaurante por ID.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}
+\begin{lstlisting}[language=json]
+{
+  "restaurant_name": "Restaurante Central",
+  "admin_id": 1,
+  "restaurant_status": 1,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Errores}: \codefile{404} restaurante no encontrado.
+
+\subsubsection{\methodpost{} \codefile{/restaurants/}}
+
+\textbf{Descripción}: crea restaurante.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "restaurant_name": "Restaurante Central",
+  "admin_id": 1,
+  "restaurant_status": 1
+}
+\end{lstlisting}
+
+\textbf{Response 201}: \codefile{RestaurantResponse}.
+
+\textbf{Errores}: \codefile{403} no admin; \codefile{404} administrador no existe; \codefile{422} body inválido.
+
+\textbf{Interacción interna}: validación de rol, DAO activo, relación con \codefile{users}.
+
+\subsubsection{\methodput{} \codefile{/restaurants/{restaurant_id}}}
+
+\textbf{Descripción}: actualiza parcialmente restaurante.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Request body}: cualquiera de \codefile{restaurant\_name}, \codefile{admin\_id}, \codefile{restaurant\_status}.
+
+\textbf{Errores}: \codefile{400} body vacío; \codefile{403} no admin; \codefile{404} restaurante o admin no existe.
+
+\subsubsection{\methoddelete{} \codefile{/restaurants/{restaurant_id}}}
+
+\textbf{Descripción}: elimina restaurante.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Response 204}: sin body.
+
+\textbf{Errores}: \codefile{403} no admin; \codefile{404} restaurante no encontrado.
+
+\subsection{Menus}
+
+\subsubsection{\methodget{} \codefile{/menus/}}
+
+\textbf{Descripción}: lista platos del menú.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}: arreglo de \codefile{MenuResponse}.
+
+\textbf{Cache}: lee/escribe \codefile{menus:all}.
+
+\textbf{Interacción interna}: Redis y DAO activo.
+
+\subsubsection{\methodget{} \codefile{/menus/\{menu\_id\}}}
+
+\textbf{Descripción}: obtiene un plato por ID.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}
+\begin{lstlisting}[language=json]
+{
+  "dish_name": "Pizza Margarita",
+  "category": "Plato fuerte",
+  "description": "Pizza con queso, tomate y albahaca",
+  "price": 7200.0,
+  "restaurant_id": 1,
+  "menu_id": 1
+}
+\end{lstlisting}
+
+\textbf{Cache}: lee/escribe \codefile{menus:<menu\_id>}.
+
+\textbf{Errores}: \codefile{404} plato no encontrado.
+
+\subsubsection{\methodpost{} \codefile{/menus/}}
+
+\textbf{Descripción}: crea plato.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "dish_name": "Pizza Margarita",
+  "category": "Plato fuerte",
+  "description": "Pizza con queso, tomate y albahaca",
+  "price": 7200.0,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Response 201}: \codefile{MenuResponse}.
+
+\textbf{Errores}: \codefile{403} no admin; \codefile{404} restaurante no existe; \codefile{409} plato duplicado en restaurante.
+
+\textbf{Interacción interna}: DAO activo, Redis, invalidación de \codefile{menus:all} y \codefile{search:products:*}.
+
+\subsubsection{\methodput{} \codefile{/menus/\{menu\_id\}}}
+
+\textbf{Descripción}: actualiza parcialmente plato.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Request body}: cualquiera de \codefile{dish\_name}, \codefile{category}, \codefile{description}, \codefile{price}, \codefile{restaurant\_id}.
+
+\textbf{Errores}: \codefile{400} body vacío; \codefile{403}; \codefile{404}; \codefile{409}.
+
+\textbf{Interacción interna}: DAO activo e invalidación de caché de menú y búsqueda.
+
+\subsubsection{\methoddelete{} \codefile{/menus/\{menu\_id\}}}
+
+\textbf{Descripción}: elimina plato.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Response 204}: sin body.
+
+\textbf{Interacción interna}: DAO activo e invalidación de \codefile{menus:all}, \codefile{menus:<id>} y \codefile{search:products:*}.
+
+\subsection{Tables}
+
+\subsubsection{\methodget{} \codefile{/tables/}}
+
+\textbf{Descripción}: lista mesas.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}: arreglo de \codefile{TableResponse}.
+
+\subsubsection{\methodpost{} \codefile{/tables/}}
+
+\textbf{Descripción}: crea mesa.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "table_number": 12,
+  "table_status": 1,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Response 201}: \codefile{TableResponse}.
+
+\textbf{Errores}: \codefile{403} no admin; \codefile{404} restaurante no existe; \codefile{409} número de mesa duplicado en restaurante.
+
+\subsubsection{\methodget{} \texttt{/tables/\{table\_id\}}}
+
+\textbf{Descripción}: obtiene mesa por ID.
+
+\textbf{Errores}: \codefile{404} mesa no encontrada.
+
+\subsubsection{\methodput{} \texttt{/tables/\{table\_id\}}}
+
+\textbf{Descripción}: actualiza mesa parcialmente.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Errores}: \codefile{400} body vacío; \codefile{403}; \codefile{404}; \codefile{409}.
+
+\subsubsection{\methoddelete{} \texttt{/tables/\{table\_id\}}}
+
+\textbf{Descripción}: elimina mesa.
+
+\textbf{Autenticación}: admin.
+
+\textbf{Response 204}: sin body.
+
+\subsection{Orders}
+
+\subsubsection{\methodpost{} \codefile{/orders/}}
+
+\textbf{Descripción}: crea pedido.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "table_id": 1,
+  "client_id": 2,
+  "order_type": "local",
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Response 201}: \codefile{OrderResponse}.
+
+\textbf{Errores}: \codefile{404} mesa, cliente o restaurante no existe; \codefile{422} body inválido.
+
+\textbf{Interacción interna}: DAO activo.
+
+\subsubsection{\methodget{} \codefile{/orders/\{order\_id\}}}
+
+\textbf{Descripción}: obtiene pedido por ID.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Errores}: \codefile{404} pedido no encontrado.
+
+\subsection{Reservations}
+
+\subsubsection{\methodpost{} \codefile{/reservations/}}
+
+\textbf{Descripción}: crea reservación.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Request body}
+\begin{lstlisting}[language=json]
+{
+  "table_id": 1,
+  "client_id": 2,
+  "reservation_date": "2026-06-25T19:30:00",
+  "reservation_status": 1
+}
+\end{lstlisting}
+
+\textbf{Response 201}: \codefile{ReservationResponse}.
+
+\textbf{Errores}: \codefile{404} mesa o cliente no existe; \codefile{422} fecha o tipos inválidos.
+
+\subsubsection{\methoddelete{} \codefile{/reservations/{reservation_id}}}
+
+\textbf{Descripción}: cancela/elimina reservación.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 204}: sin body.
+
+\textbf{Errores}: \codefile{404} reservación no encontrada.
+
+\subsection{Search}
+
+\subsubsection{\methodget{} \codefile{/products}}
+
+\textbf{Descripción}: búsqueda textual de productos.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Query params}
+\begin{longtable}{p{0.18\textwidth}p{0.16\textwidth}p{0.16\textwidth}p{0.40\textwidth}}
+\toprule
+\textbf{Parámetro} & \textbf{Tipo} & \textbf{Requerido} & \textbf{Descripción}\\
+\midrule
+\codefile{q} & string & Sí & Texto a buscar en nombre, categoría o descripción.\\
+\bottomrule
+\end{longtable}
+
+\textbf{Response 200}: arreglo de productos indexados.
+
+\textbf{Cache}: \codefile{search:products:text:<q>}.
+
+\textbf{Interacción interna}: Redis y Elasticsearch.
+
+\subsubsection{\methodget{} \codefile{/products/category/{category}}}
+
+\textbf{Descripción}: busca productos por categoría exacta normalizada.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}: arreglo de productos indexados.
+
+\textbf{Cache}: \codefile{search:products:category:<category>}.
+
+\subsubsection{\methodpost{} \codefile{/reindex}}
+
+\textbf{Descripción}: reconstruye índice de productos.
+
+\textbf{Autenticación}: token válido.
+
+\textbf{Response 200}
+\begin{lstlisting}[language=json]
+{
+  "message": "Productos reindexados correctamente",
+  "total": 25
+}
+\end{lstlisting}
+
+\textbf{Interacción interna}: DAO activo, Elasticsearch y Redis.
+
+\subsection{Graph}
+
+\subsubsection{\methodget{} \codefile{/graph/export}}
+
+\textbf{Descripción}: exporta datos operacionales para Neo4J y Data Warehouse.
+
+\textbf{Autenticación}: en la implementación actual no declara dependencia de token.
+
+\textbf{Response 200}
+\begin{lstlisting}[language=json]
+{
+  "roles": [],
+  "users": [],
+  "restaurants": [],
+  "products": [],
+  "orders": [],
+  "order_items": []
+}
+\end{lstlisting}
+
+\textbf{Interacción interna}: DAO activo. También calcula \codefile{total} de cada pedido usando \codefile{order\_items}.
+
+\section{Contratos de API}
+
+\subsection{Sistema}
+
+\begin{longtable}{p{0.25\textwidth}p{0.18\textwidth}p{0.45\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Auth} & \textbf{Respuesta}\\
+\midrule
+\endpoint{GET}{/ping} & No & \codefile{\{"message":"pong"\}}.\\
+\endpoint{GET}{/} & No & Mensaje de API funcionando y versión.\\
+\endpoint{GET}{/health} & No & \codefile{\{"status":"ok"\}}.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Autenticación}
+
+\subsubsection{\endpoint{POST}{/auth/register}}
+
+Registra un usuario cliente en Keycloak y en la base activa.
+
+\textbf{Body}
+\begin{lstlisting}[language=json]
+{
+  "username": "cliente1",
+  "email": "cliente1@example.com",
+  "password": "password123"
+}
+\end{lstlisting}
+
+\textbf{Validaciones}
+\begin{itemize}
+    \item \codefile{username}: 3 a 64 caracteres.
+    \item \codefile{email}: email válido.
+    \item \codefile{password}: 8 a 128 caracteres.
+    \item No debe existir otro usuario con el mismo \codefile{username}.
+    \item Keycloak debe estar configurado y accesible.
+\end{itemize}
+
+\textbf{Respuesta 201}
+\begin{lstlisting}[language=json]
+{
+  "message": "Usuario creado correctamente",
+  "user_id": 2,
+  "username": "cliente1"
+}
+\end{lstlisting}
+
+\textbf{Errores}
+\begin{itemize}
+    \item \codefile{400}: campos faltantes o usuario duplicado.
+    \item \codefile{503}: Keycloak no configurado.
+    \item \codefile{500}: error creando usuario en Keycloak o en base de datos.
+\end{itemize}
+
+\subsubsection{\endpoint{POST}{/auth/login}}
+
+Obtiene tokens desde Keycloak.
+
+\textbf{Body}
+\begin{lstlisting}[language=json]
+{
+  "username": "admin",
+  "password": "admin"
+}
+\end{lstlisting}
+
+\textbf{Respuesta 200}
+\begin{lstlisting}[language=json]
+{
+  "access_token": "<jwt>",
+  "expires_in": 300,
+  "refresh_expires_in": 1800,
+  "refresh_token": "<jwt>",
+  "token_type": "Bearer",
+  "not-before-policy": 0,
+  "session_state": "...",
+  "scope": "profile email"
+}
+\end{lstlisting}
+
+\textbf{Interpretación}: \codefile{access\_token} se usa en rutas protegidas. \codefile{refresh\_token} permite renovar sesión según la configuración de Keycloak.
+
+\textbf{Errores}
+\begin{itemize}
+    \item \codefile{401}: credenciales inválidas o usuario inexistente.
+    \item \codefile{403}: acciones requeridas pendientes en Keycloak.
+\end{itemize}
+
+\subsection{Usuarios}
+
+\begin{longtable}{p{0.20\textwidth}p{0.18\textwidth}p{0.20\textwidth}p{0.34\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Salida / reglas}\\
+\midrule
+\endpoint{GET}{/users/me} & Ninguna & Token válido & Devuelve el usuario local asociado al \codefile{sub} del JWT.\\
+\endpoint{PUT}{/users/{id}} & \codefile{UserUpdate} & Dueño o admin & Actualiza \codefile{user\_name}. No permite escalar rol. Sincroniza nombre con Keycloak.\\
+\endpoint{DELETE}{/users/{id}} & ID en path & Dueño o admin & Elimina usuario en Keycloak y base local. Responde \codefile{204}.\\
+\bottomrule
+\end{longtable}
+
+\textbf{UserUpdate}
+\begin{lstlisting}[language=json]
+{
+  "user_name": "nuevo_nombre",
+  "role_id": 2
+}
+\end{lstlisting}
+
+Aunque el esquema acepta \codefile{role\_id}, el endpoint rechaza cambios de rol si difieren del rol actual.
+
+\subsection{Restaurantes}
+
+\small
+\renewcommand{\arraystretch}{1.25}
+
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.22\textwidth}
+>{\raggedright\arraybackslash}p{0.15\textwidth}
+>{\raggedright\arraybackslash}X
+}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+
+\endpoint{GET}{/restaurants/}
+& Ninguna
+& Token válido
+& Lista todos los restaurantes.\\
+
+\endpoint{GET}{/restaurants/{id}}
+& ID
+& Token válido
+& Devuelve un restaurante o responde 404.\\
+
+\endpoint{POST}{/restaurants/}
+& \codefile{RestaurantCreate}
+& Admin
+& Crea restaurante si \codefile{admin_id} existe.\\
+
+\endpoint{PUT}{/restaurants/{id}}
+& \codefile{RestaurantUpdate}
+& Admin
+& Actualiza parcialmente; requiere al menos un campo.\\
+
+\endpoint{DELETE}{/restaurants/{id}}
+& ID
+& Admin
+& Elimina restaurante o responde 404.\\
+
+\bottomrule
+\end{tabularx}
+
+\normalsize
+\renewcommand{\arraystretch}{1}
+
+\vspace{0.6cm}
+
+\textbf{RestaurantCreate}
+\begin{lstlisting}[language=json]
+{
+  "restaurant_name": "Restaurante Central",
+  "admin_id": 1,
+  "restaurant_status": 1
+}
+\end{lstlisting}
+
+\textbf{RestaurantResponse}
+\begin{lstlisting}[language=json]
+{
+  "restaurant_name": "Restaurante Central",
+  "admin_id": 1,
+  "restaurant_status": 1,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\subsection{Menús}
+
+\begin{longtable}{p{0.20\textwidth}p{0.22\textwidth}p{0.18\textwidth}p{0.32\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+\endpoint{GET}{/menus/} & Ninguna & Token válido & Lista menús. Usa Redis con llave \codefile{menus:all}.\\
+\endpoint{GET}{/menus/{id}} & ID & Token válido & Devuelve un plato. Usa Redis con llave \codefile{menus:<id>}.\\
+\endpoint{POST}{/menus/} & \codefile{MenuCreate} & Admin & Crea plato si restaurante existe. Invalida caché.\\
+\endpoint{PUT}{/menus/{id}} & \codefile{MenuUpdate} & Admin & Actualiza parcialmente. Invalida caché de menú y búsqueda.\\
+\endpoint{DELETE}{/menus/{id}} & ID & Admin & Elimina plato e invalida caché.\\
+\bottomrule
+\end{longtable}
+
+\textbf{MenuCreate}
+\begin{lstlisting}[language=json]
+{
+  "dish_name": "Pizza Margarita",
+  "category": "Plato fuerte",
+  "description": "Pizza con queso, tomate y albahaca",
+  "price": 7200.0,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Reglas}
+\begin{itemize}
+    \item \codefile{price} debe ser mayor que 0.
+    \item \codefile{restaurant\_id} debe existir.
+    \item Si ya existe el mismo \codefile{dish\_name} en el restaurante, responde \codefile{409}.
+\end{itemize}
+
+\subsection{Mesas}
+
+\begin{longtable}{p{0.20\textwidth}p{0.22\textwidth}p{0.18\textwidth}p{0.32\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+\endpoint{GET}{/tables/} & Ninguna & Token válido & Lista mesas.\\
+\endpoint{GET}{/tables/{id}} & ID & Token válido & Devuelve mesa o \codefile{404}.\\
+\endpoint{POST}{/tables/} & \codefile{TableCreate} & Admin & Crea mesa si restaurante existe.\\
+\endpoint{PUT}{/tables/{id}} & \codefile{TableUpdate} & Admin & Actualiza parcialmente.\\
+\endpoint{DELETE}{/tables/{id}} & ID & Admin & Elimina mesa.\\
+\bottomrule
+\end{longtable}
+
+\textbf{TableCreate}
+\begin{lstlisting}[language=json]
+{
+  "table_number": 12,
+  "table_status": 1,
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Reglas}
+\begin{itemize}
+    \item \codefile{table\_number} debe ser mayor que 0.
+    \item \codefile{table\_status} debe estar entre 0 y 2.
+    \item No se permite repetir número de mesa dentro del mismo restaurante.
+\end{itemize}
+
+\subsection{Pedidos}
+
+\begin{longtable}{p{0.20\textwidth}p{0.22\textwidth}p{0.18\textwidth}p{0.32\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+\endpoint{POST}{/orders/} & \codefile{OrderCreate} & Token válido & Crea pedido validando mesa opcional, cliente y restaurante.\\
+\endpoint{GET}{/orders/{id}} & ID & Token válido & Devuelve pedido o \codefile{404}.\\
+\bottomrule
+\end{longtable}
+
+\textbf{OrderCreate}
+\begin{lstlisting}[language=json]
+{
+  "table_id": 1,
+  "client_id": 2,
+  "order_type": "local",
+  "restaurant_id": 1
+}
+\end{lstlisting}
+
+\textbf{Interpretación}
+
+Un pedido representa la cabecera de la orden. Los ítems existen en el modelo y DAO, y son usados por exportaciones analíticas y de grafo, aunque no hay router CRUD público para \codefile{order\_items} en la API actual.
+
+\subsection{Reservaciones}
+
+\begin{longtable}{p{0.20\textwidth}p{0.22\textwidth}p{0.18\textwidth}p{0.32\textwidth}}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+\endpoint{POST}{/reservations/} & \codefile{ReservationCreate} & Token válido & Crea reserva si mesa y cliente existen.\\
+\endpoint{DELETE}{/reservations/{id}} & ID & Token válido & Cancela/elimina reserva. Responde \codefile{204}.\\
+\bottomrule
+\end{longtable}
+
+\textbf{ReservationCreate}
+\begin{lstlisting}[language=json]
+{
+  "table_id": 1,
+  "client_id": 2,
+  "reservation_date": "2026-06-25T19:30:00",
+  "reservation_status": 1
+}
+\end{lstlisting}
+
+\textbf{Interpretación}
+
+\codefile{reservation\_date} se envía como fecha/hora ISO 8601. \codefile{reservation\_status} es entero no negativo y representa el estado de negocio definido por el sistema.
+
+\subsection{Búsqueda}
+
+El microservicio Search se publica normalmente bajo \codefile{/search}. Si se accede directo al contenedor, las rutas no incluyen prefijo.
+
+\small
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash}p{0.26\textwidth}
+>{\raggedright\arraybackslash}p{0.20\textwidth}
+>{\raggedright\arraybackslash}p{0.17\textwidth}
+>{\raggedright\arraybackslash}X
+}
+\toprule
+\textbf{Endpoint} & \textbf{Entrada} & \textbf{Auth} & \textbf{Comportamiento}\\
+\midrule
+\endpoint{GET}{\codefile{/products?q=texto}} 
+& Query \codefile{q} 
+& Token válido 
+& Busca productos en Elasticsearch por nombre, categoría o descripción. Usa Redis.\\
+
+\endpoint{GET}{\codefile{/products/category/{category}}} 
+& Categoría 
+& Token válido 
+& Filtra por categoría exacta normalizada. Usa Redis.\\
+
+\endpoint{POST}{\codefile{/reindex}} 
+& Ninguna 
+& Token válido 
+& Recrea índice \codefile{products}, indexa todos los menús y limpia caché de búsqueda.\\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.6cm}
+
+\textbf{Respuesta de búsqueda}
+\begin{lstlisting}[language=json]
+[
+  {
+    "menu_id": 1,
+    "dish_name": "Pizza Margarita",
+    "category": "Plato fuerte",
+    "description": "Pizza con queso, tomate y albahaca",
+    "price": 7200.0,
+    "restaurant_id": 1
+  }
+]
+\end{lstlisting}
+
+\textbf{Respuesta de reindexado}
+\begin{lstlisting}[language=json]
+{
+  "message": "Productos reindexados correctamente",
+  "total": 25
+}
+\end{lstlisting}
+
+\subsection{Exportación para grafo}
+
+\subsubsection{\endpoint{GET}{/graph/export}}
+
+Exporta datos operacionales para Neo4J y para el generador de seed del Data Warehouse.
+
+\textbf{Respuesta}
+\begin{lstlisting}[language=json]
+{
+  "roles": [],
+  "users": [],
+  "restaurants": [],
+  "products": [],
+  "orders": [],
+  "order_items": []
+}
+\end{lstlisting}
+
+\textbf{Interpretación}: cada arreglo contiene registros normalizados. En \codefile{orders}, la API calcula \codefile{total} sumando \codefile{price * quantity} de sus ítems.
+
+\section{Flujos de datos operacionales}
+
+\subsection{Administrador agrega plato}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{documentation/Diagrama de flujo de datos - Admin_Menu.png}
+    \caption{Flujo de datos para creación de menú por administrador.}
+\end{figure}
+
+El administrador envía una solicitud para agregar un platillo. Nginx redirige hacia FastAPI. La API valida el token con Keycloak y verifica rol \codefile{admin}. Después valida que el restaurante exista, crea el documento/fila en la base activa y limpia cachés afectadas. La respuesta JSON confirma el recurso creado.
+
+\subsection{Cliente busca productos}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{documentation/Diagrama de flujo de datos - Cliente_Búsqueda.png}
+    \caption{Flujo de datos para búsqueda de productos por cliente.}
+\end{figure}
+
+El cliente consulta productos. La API valida token, consulta Redis y, si hay \textit{cache hit}, responde inmediatamente. Si hay \textit{cache miss}, ejecuta búsqueda en Elasticsearch, procesa documentos encontrados, guarda el resultado en Redis y responde al cliente.
+
+\subsection{Cliente crea reservación}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{documentation/Diagrama de flujo de datos - Cliente_Reserva.png}
+    \caption{Flujo de datos para creación de reservación.}
+\end{figure}
+
+El cliente solicita una reserva. La API valida token, verifica que la mesa exista, verifica que el cliente exista y crea la reserva en la base activa. La respuesta confirma la reserva creada.
+
+\section{Ejecución local}
+
+\subsection{Levantar el sistema completo}
+
+\begin{lstlisting}[language=bash]
+docker compose up -d --build
+\end{lstlisting}
+
+\subsection{Verificar servicios}
+
+\begin{lstlisting}[language=bash]
+docker compose ps
+docker compose logs -f keycloak
+docker compose logs -f api
+docker compose logs -f seed
+\end{lstlisting}
+
+\subsection{Credenciales por defecto}
+
+\begin{longtable}{p{0.25\textwidth}p{0.25\textwidth}p{0.35\textwidth}}
+\toprule
+\textbf{Servicio} & \textbf{Usuario / password} & \textbf{URL}\\
+\midrule
+Keycloak Admin & \codefile{admin/admin} & \codefile{http://localhost:8001/admin/master/console/}\\
+Usuario seed API & \codefile{admin/admin} & vía \codefile{/auth/login}\\
+PostgreSQL & \codefile{postgres/postgres123} & \codefile{localhost:5432}\\
+Superset & \codefile{admin/admin} & \codefile{http://localhost:8088}\\
+Airflow & \codefile{admin/admin} & \codefile{http://localhost:8090}\\
+Neo4J & \codefile{neo4j/restaurant123} & \codefile{http://localhost:7474}\\
+\bottomrule
+\end{longtable}
+
+\section{Carpeta \codefile{dataW}: plataforma analítica completa}
+
+\subsection{Objetivo de \codefile{dataW}}
+
+\codefile{dataW} implementa la parte analítica del proyecto. Su propósito es transformar datos operacionales en información agregada para análisis OLAP y dashboards.
+
+\begin{lstlisting}
+PostgreSQL / MongoDB
+        |
+API /graph/export
+        |
+Generador HQL operacional
+        |
+Hive Data Warehouse
+        |
+Vistas OLAP
+        |
+Superset
+        |
+Dashboards
+\end{lstlisting}
+
+Airflow coordina el flujo completo y Spark ejecuta análisis distribuidos complementarios.
+
+\subsection{Estructura de \codefile{dataW}}
+
+\begin{longtable}{p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+\textbf{Ruta} & \textbf{Descripción}\\
+\midrule
+\codefile{dataW/warehouse/} & Esquema estrella, scripts Hive, seed operacional, ETL histórico y pruebas del Data Warehouse.\\
+\codefile{dataW/spark/} & Job PySpark, salidas CSV/JSON y validación del procesamiento distribuido.\\
+\codefile{dataW/visualization/} & Configuración de Superset, consultas SQL y catálogo de dashboards.\\
+\codefile{dataW/airflow/} & DAG, scripts de orquestación, Dockerfile, estado del pipeline y pruebas de Airflow.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Data Warehouse en Hive}
+
+El Data Warehouse usa un esquema estrella. Las dimensiones describen contexto; los hechos almacenan métricas.
+
+\subsubsection{Dimensiones}
+
+\begin{longtable}{p{0.22\textwidth}p{0.68\textwidth}}
+\toprule
+\textbf{Tabla} & \textbf{Propósito}\\
+\midrule
+\codefile{dim\_time} & Fechas, día, semana, mes, trimestre, año, fin de semana y temporada.\\
+\codefile{dim\_customer} & Cliente, tipo, zona geográfica, nivel de lealtad, gasto total y actividad.\\
+\codefile{dim\_product} & Producto, categoría, precio, costo, margen y disponibilidad.\\
+\codefile{dim\_restaurant} & Restaurante, ubicación, zona, capacidad, contacto y estado.\\
+\codefile{dim\_status} & Estados de órdenes y reservaciones.\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Hechos}
+
+\begin{longtable}{p{0.22\textwidth}p{0.68\textwidth}}
+\toprule
+\textbf{Tabla} & \textbf{Métricas}\\
+\midrule
+\codefile{fact\_orders} & Cantidad, precio unitario, total, descuento, neto, impuesto, final, hora de orden y hora de entrega.\\
+\codefile{fact\_reservations} & Tamaño del grupo, duración, ocupación de mesa, no-show, fecha de reserva, check-in y check-out.\\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Vistas OLAP actuales}
+
+El archivo \codefile{dataW/warehouse/schemas/hive\_dashboard\_views.sql} crea las vistas usadas por los dashboards de Superset:
+
+\begin{itemize}
+    \item \codefile{cubo\_ingresos\_mes\_categoria}
+    \item \codefile{cubo\_actividad\_clientes\_zona}
+    \item \codefile{cubo\_ordenes\_completadas\_canceladas}
+\end{itemize}
+
+\textbf{Ejemplo de consulta OLAP}
+\begin{lstlisting}[language=SQL]
+SELECT
+    year,
+    month_name,
+    category,
+    ingresos_totales
+FROM cubo_ingresos_mes_categoria
+ORDER BY year, month, category;
+\end{lstlisting}
+
+\subsection{Generación de seed operacional}
+
+El servicio \codefile{warehouse-seed-generator} ejecuta:
+
+\begin{lstlisting}
+dataW/warehouse/scripts/generate_operational_seed.py
+\end{lstlisting}
+
+Este script consulta:
+
+\begin{lstlisting}
+http://api/graph/export
+\end{lstlisting}
+
+y genera:
+
+\begin{lstlisting}
+dataW/warehouse/generated/operational_seed.hql
+\end{lstlisting}
+
+El seed transforma usuarios, restaurantes, productos, pedidos e ítems en filas dimensionales y de hechos para Hive. Si faltan \codefile{order\_items}, el script puede completar datos derivados por restaurante para mantener un seed analítico utilizable.
+
+\subsection{Spark}
+
+El job \codefile{dataW/spark/jobs/analytics\_job.py} demuestra procesamiento distribuido con tres análisis:
+
+\begin{enumerate}
+    \item Tendencias de consumo por mes, categoría y producto.
+    \item Horarios pico por día, hora y categoría.
+    \item Crecimiento mensual con funciones ventana.
+\end{enumerate}
+
+\subsubsection{Entradas simuladas y escalamiento}
+
+El job crea DataFrames base para tiempo, productos, restaurantes, órdenes y reservaciones. Luego escala hechos con:
+
+\begin{lstlisting}
+SPARK_SCALE_FACTOR=1000
+\end{lstlisting}
+
+Con el valor por defecto se generan 6000 órdenes y 5000 reservaciones.
+
+\subsubsection{Salidas}
+
+\begin{longtable}{p{0.30\textwidth}p{0.60\textwidth}}
+\toprule
+\textbf{Salida} & \textbf{Contenido}\\
+\midrule
+\codefile{output/consumption\_trends} & CSV de tendencias de consumo.\\
+\codefile{output/peak\_hours} & CSV de horarios pico.\\
+\codefile{output/monthly\_growth} & CSV de crecimiento mensual.\\
+\codefile{output/validation\_summary.json} & Conteos de entrada y salida; evidencia de ejecución.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Superset}
+
+Superset construye dashboards consultando directamente Hive. La herramienta no consume la API transaccional; consume vistas OLAP ya materializadas lógicamente.
+
+\subsubsection{Dashboards requeridos}
+
+\begin{longtable}{p{0.28\textwidth}p{0.30\textwidth}p{0.32\textwidth}}
+\toprule
+\textbf{Dashboard} & \textbf{Vista} & \textbf{Indicadores}\\
+\midrule
+Ingresos por mes y categoría & \codefile{cubo\_ingresos\_mes\_categoria} & Ingresos totales, órdenes, ingreso por categoría, serie mensual.\\
+Actividad de clientes por zona & \codefile{cubo\_actividad\_clientes\_zona} & Clientes únicos, órdenes, ingresos por zona, ubicación.\\
+Pedidos completados vs cancelados & \codefile{cubo\_ordenes\_completadas\_canceladas} & Cantidad por estado, tasa de cancelación, monto asociado.\\
+\bottomrule
+\end{longtable}
+
+\subsection{Airflow}
+
+Airflow ejecuta el DAG \codefile{restaurant\_olap\_pipeline}. Su schedule es diario:
+
+\begin{lstlisting}
+@daily
+\end{lstlisting}
+
+\subsubsection{Tareas del DAG}
+
+\begin{lstlisting}
+start
+  -> extract_from_source
+  -> run_spark_transformations
+  -> load_to_data_warehouse
+  -> validate_warehouse
+  -> validate_delivery_routes_optional
+  -> check_product_catalog_changes
+  -> reindex_elasticsearch_if_needed / skip_reindex
+  -> finish
+\end{lstlisting}
+
+\subsubsection{Descripción de tareas}
+
+\begin{longtable}{p{0.30\textwidth}p{0.60\textwidth}}
+\toprule
+\textbf{Tarea} & \textbf{Función}\\
+\midrule
+\codefile{extract\_from\_source} & Verifica conectividad a PostgreSQL y MongoDB. Puede continuar si \codefile{ALLOW\_SOURCE\_UNAVAILABLE=true}.\\
+\codefile{run\_spark\_transformations} & Ejecuta el job PySpark en un contenedor conectado al cluster Spark.\\
+\codefile{load\_to\_data\_warehouse} & Crea base, esquema estrella, carga seed si corresponde y crea vistas OLAP.\\
+\codefile{validate\_warehouse} & Verifica existencia y conteos positivos en hechos y cubos requeridos.\\
+\codefile{validate\_delivery\_routes\_optional} & Ejecuta validación local de rutas si \codefile{ENABLE\_DELIVERY\_ROUTE\_VALIDATION=true}.\\
+\codefile{check\_product\_catalog\_changes} & Calcula hash de \codefile{dim\_product} para saber si cambió el catálogo.\\
+\codefile{reindex\_elasticsearch\_if\_needed} & Llama \codefile{POST http://search/reindex} si el catálogo cambió o si se fuerza.\\
+\codefile{skip\_reindex} & Rama usada cuando no hay cambios.\\
+\bottomrule
+\end{longtable}
+
+\section{Neo4J y asignación de rutas}
+
+\subsection{Modelo de grafo}
+
+El grafo contiene:
+
+\begin{itemize}
+    \item \codefile{Usuario}
+    \item \codefile{Producto}
+    \item \codefile{Pedido}
+    \item \codefile{Restaurante}
+    \item \codefile{Ubicacion}
+    \item \codefile{Repartidor}
+\end{itemize}
+
+Relaciones principales:
+
+\begin{itemize}
+    \item \codefile{(:Usuario)-[:REALIZO]->(:Pedido)}
+    \item \codefile{(:Pedido)-[:CONTIENE]->(:Producto)}
+    \item \codefile{(:Pedido)-[:SALE\_DE]->(:Restaurante)}
+    \item \codefile{(:Pedido)-[:ENTREGAR\_EN]->(:Ubicacion)}
+    \item \codefile{(:Repartidor)-[:ASIGNADO\_A]->(:Pedido)}
+\end{itemize}
+
+\subsection{Heurística de vecino más cercano}
+
+El algoritmo local:
+
+\begin{enumerate}
+    \item Carga repartidores, pedidos y ubicaciones desde JSON.
+    \item Calcula distancia entre ubicaciones con Haversine.
+    \item Procesa repartidores por rondas.
+    \item Para cada repartidor elige el pedido pendiente más cercano.
+    \item Actualiza la ubicación actual del repartidor.
+    \item Continúa hasta agotar pedidos o capacidad.
+\end{enumerate}
+
+\section{Pruebas y validación}
+
+\subsection{Pruebas unitarias}
+
+\begin{lstlisting}[language=bash]
+pytest backend/tests/unit
+\end{lstlisting}
+
+\subsection{Pruebas de integración}
+
+\begin{lstlisting}[language=bash]
+docker compose up -d --build
+pytest backend/tests/integration
+\end{lstlisting}
+
+\subsection{Validación Spark}
+
+\begin{lstlisting}[language=bash]
+.\dataW\spark\tests\run_full_spark_validation.ps1
+\end{lstlisting}
+
+\subsection{Validación Data Warehouse}
+
+\begin{lstlisting}[language=bash]
+.\dataW\warehouse\tests\run_full_dw_validation.ps1
+\end{lstlisting}
+
+\subsection{Validación visualización}
+
+\begin{lstlisting}[language=bash]
+.\dataW\visualization\tests\run_full_visualization_validation.ps1
+\end{lstlisting}
+
+\subsection{Validación Airflow}
+
+\begin{lstlisting}[language=bash]
+python dataW\airflow\test\test_airflow_point4_requirements.py
+\end{lstlisting}
+
+\subsection{Validación Neo4J}
+
+\begin{lstlisting}[language=bash]
+python .\neo4j\delivery_assignment.py
+python .\neo4j\test_delivery_routes.py
+\end{lstlisting}
+
+\section{Seguridad}
+
+\begin{itemize}
+    \item Las rutas protegidas requieren JWT válido.
+    \item Las operaciones administrativas validan rol \codefile{admin}.
+    \item La API no confía solo en datos del body; revisa existencia de dependencias en la base.
+    \item Keycloak centraliza credenciales y emisión de tokens.
+    \item Los tokens se validan criptográficamente contra JWKS.
+    \item Nginx puede actuar como punto de control para exponer solo rutas necesarias.
+\end{itemize}
+
+\section{Consideraciones de consistencia}
+
+\begin{itemize}
+    \item El registro de usuario realiza dos escrituras: Keycloak y base local. Si falla la segunda, intenta compensar eliminando en Keycloak.
+    \item El caché se invalida cuando se modifican menús porque afecta tanto listados como búsquedas.
+    \item Elasticsearch no es la fuente de verdad; se reconstruye desde menús mediante \codefile{/reindex}.
+    \item Hive tampoco es fuente transaccional; representa una copia analítica.
+    \item Airflow evita duplicar cargas revisando si \codefile{fact\_orders} ya tiene datos.
+\end{itemize}
+
+\section{Limitaciones conocidas}
+
+\begin{itemize}
+    \item No existe router público completo para \codefile{order\_items}; el modelo y DAO sí existen.
+    \item Las reservas no tienen endpoint \codefile{GET} ni \codefile{PUT} público en la implementación actual.
+    \item Algunos cubos mencionados en guías históricas existen como diseño conceptual, pero el archivo activo de dashboards crea tres vistas OLAP requeridas.
+    \item El proyecto de rutas usa ubicaciones proyectadas o simuladas porque la base operacional no almacena coordenadas reales de clientes/restaurantes.
+    \item La validación de audience del JWT está desactivada porque Keycloak no incluye audience por defecto sin protocol mapper.
+\end{itemize}
+
+\section{Apéndice A: resumen de endpoints}
+
+\small
+\begin{longtable}{p{0.18\linewidth}p{0.22\linewidth}p{0.18\linewidth}p{0.34\linewidth}}
+\toprule
+\textbf{Método} & \textbf{Ruta} & \textbf{Entrada} & \textbf{Respuesta exitosa}\\
+\midrule
+GET & \codefile{/ping} & --- & \codefile{\{"message":"pong"\}}\\
+GET & \codefile{/health} & --- & \codefile{\{"status":"ok"\}}\\
+POST & \codefile{/auth/register} & \codefile{RegisterRequest} & \codefile{RegisterResponse}, 201\\
+POST & \codefile{/auth/login} & \codefile{LoginRequest} & Tokens Keycloak\\
+GET & \codefile{/users/me} & Token & \codefile{UserResponse}\\
+PUT & \codefile{/users/{id}} & \codefile{UserUpdate} & \codefile{UserResponse}\\
+DELETE & \codefile{/users/{id}} & ID & 204\\
+GET & \codefile{/restaurants/} & Token & Lista \codefile{RestaurantResponse}\\
+GET & \codefile{/restaurants/{id}} & ID & \codefile{RestaurantResponse}\\
+POST & \codefile{/restaurants/} & \codefile{RestaurantCreate} & \codefile{RestaurantResponse}, 201\\
+PUT & \codefile{/restaurants/{id}} & \codefile{RestaurantUpdate} & \codefile{RestaurantResponse}\\
+DELETE & \codefile{/restaurants/{id}} & ID & 204\\
+GET & \codefile{/menus/} & Token & Lista \codefile{MenuResponse}\\
+GET & \codefile{/menus/{id}} & ID & \codefile{MenuResponse}\\
+POST & \codefile{/menus/} & \codefile{MenuCreate} & \codefile{MenuResponse}, 201\\
+PUT & \codefile{/menus/{id}} & \codefile{MenuUpdate} & \codefile{MenuResponse}\\
+DELETE & \codefile{/menus/{id}} & ID & 204\\
+GET & \codefile{/tables/} & Token & Lista \codefile{TableResponse}\\
+GET & \codefile{/tables/{id}} & ID & \codefile{TableResponse}\\
+POST & \codefile{/tables/} & \codefile{TableCreate} & \codefile{TableResponse}, 201\\
+PUT & \codefile{/tables/{id}} & \codefile{TableUpdate} & \codefile{TableResponse}\\
+DELETE & \codefile{/tables/{id}} & ID & 204\\
+POST & \codefile{/orders/} & \codefile{OrderCreate} & \codefile{OrderResponse}, 201\\
+GET & \codefile{/orders/{id}} & ID & \codefile{OrderResponse}\\
+POST & \codefile{/reservations/} & \codefile{ReservationCreate} & \codefile{ReservationResponse}, 201\\
+DELETE & \codefile{/reservations/{id}} & ID & 204\\
+GET & \codefile{/products?q=} & Query \codefile{q} & Lista de productos indexados\\
+GET & \codefile{/products/category/{category}} & Categoría & Lista de productos indexados\\
+POST & \codefile{/reindex} & Token & Mensaje y total indexado\\
+GET & \codefile{/graph/export} & --- & Exportación operacional para grafo/DW\\
+\bottomrule
+\end{longtable}
+
+\section{Apéndice B: archivos fuente relevantes}
+
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Archivo} & \textbf{Uso}\\
+\midrule
+\codefile{backend/app/api_main.py} & Aplicación FastAPI transaccional.\\
+\codefile{backend/app/search_main.py} & Aplicación FastAPI de búsqueda.\\
+\codefile{backend/database.py} & Selección de motor y dependencias de base.\\
+\codefile{backend/dao.py} & DAO común para PostgreSQL y MongoDB.\\
+\codefile{backend/app/routers/*.py} & Rutas REST.\\
+\codefile{backend/schemas/*.py} & Contratos Pydantic.\\
+\codefile{backend/models/*.py} & Modelos SQLAlchemy.\\
+\codefile{dbs/mongo/*.js} & Inicialización, índices y sharding de MongoDB.\\
+\codefile{dbs/postgres/init.sql} & Roles iniciales de PostgreSQL.\\
+\codefile{dataW/warehouse/schemas/schema_star.sql} & Esquema estrella Hive.\\
+\codefile{dataW/warehouse/schemas/hive_dashboard_views.sql} & Vistas OLAP activas.\\
+\codefile{dataW/spark/jobs/analytics_job.py} & Procesamiento Spark.\\
+\codefile{dataW/airflow/dags/restaurant_olap_pipeline.py} & DAG principal de Airflow.\\
+\codefile{dataW/visualization/dashboards/dashboard_catalog.md} & Diseño de dashboards.\\
+\codefile{neo4j/delivery_assignment.py} & Heurística local de rutas.\\
+\bottomrule
+\end{tabularx}
+
+\section{Conclusión}
+
+El proyecto integra un sistema transaccional robusto con una plataforma analítica completa. FastAPI centraliza reglas de negocio y contratos REST; Keycloak protege el acceso; PostgreSQL y MongoDB permiten persistencia relacional o documental; Redis y Elasticsearch optimizan lectura y búsqueda; Nginx simplifica exposición; y \codefile{dataW} convierte los datos operacionales en análisis mediante Hive, Spark, Superset y Airflow. La arquitectura permite demostrar bases distribuidas, APIs, caché, búsqueda, OLAP, orquestación y grafos dentro de un mismo ecosistema reproducible.
+
+\end{document}
+
