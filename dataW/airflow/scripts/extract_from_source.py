@@ -12,9 +12,10 @@ def main() -> None:
     Valida disponibilidad de fuentes transaccionales.
 
     El proyecto puede correr el pipeline OLAP aunque las fuentes completas no
-    esten levantadas, porque el DW actual usa seed reproducible. Para no romper
-    la demo local, ALLOW_SOURCE_UNAVAILABLE=true permite continuar dejando logs
-    claros. Si se desea modo estricto: ALLOW_SOURCE_UNAVAILABLE=false.
+    esten levantadas, porque el DW actual puede usar una carga reproducible.
+    Para no romper validaciones locales, ALLOW_SOURCE_UNAVAILABLE=true permite
+    continuar dejando logs claros. Si se desea modo estricto:
+    ALLOW_SOURCE_UNAVAILABLE=false.
     """
     checks = {
         "postgres": check_tcp(os.getenv("POSTGRES_HOST", "postgres"), int(os.getenv("POSTGRES_PORT", "5432"))),
