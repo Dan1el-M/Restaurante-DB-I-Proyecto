@@ -12,14 +12,14 @@ Antes de completar el Punto 6 se reviso el repositorio y ya existia una base rel
 - `neo4j/queries.cypher`: tenia consultas de Punto 5 y un resumen inicial de Punto 6.
 - `dataW/airflow/dags/restaurant_olap_pipeline.py`: orquesta los puntos de warehouse, Spark, Hive y Search.
 
-Decision: se reutilizo la implementacion Neo4J existente y se completo con una capa local demostrable, consultas Cypher separadas, mejor salida de validacion y una tarea opcional de Airflow apagada por defecto.
+Decision: se reutilizo la implementacion Neo4J existente y se completo con carga desde fuentes operacionales, consultas Cypher separadas, mejor salida de validacion y una tarea opcional de Airflow apagada por defecto.
 
 ## Archivos
 
 Agregados:
 
-- `neo4j/delivery_assignment.py`: heuristica local de vecino mas cercano con datos simulados.
-- `neo4j/sample_delivery_data.json`: repartidores, pedidos y ubicaciones de muestra.
+- `neo4j/delivery_assignment.py`: validador local de la heuristica de vecino mas cercano, usado solo como respaldo cuando Neo4J no esta disponible.
+- `neo4j/sample_delivery_data.json`: datos controlados para validar la heuristica fuera de Docker; no reemplazan el flujo principal con Neo4J.
 - `neo4j/delivery_assignment_queries.cypher`: consultas Cypher especificas del Punto 6.
 
 Modificados:
@@ -69,9 +69,9 @@ El Punto 6 usa vecino mas cercano:
 8. Se repite por rondas hasta agotar pedidos o capacidad.
 9. Se persiste `ASIGNADO_A` con orden, ruta, distancia, tiempo y heuristica.
 
-## Ejecucion local sin Neo4J
+## Validacion local de respaldo
 
-Esta validacion usa `sample_delivery_data.json`, no necesita Docker y sirve para explicar la heuristica en la entrega:
+El flujo principal del Punto 5 y Punto 6 usa datos operacionales cargados en Neo4J desde `/graph/export`. Esta validacion local no necesita Docker y sirve unicamente como respaldo para explicar la heuristica si Neo4J no esta disponible durante una demo:
 
 ```powershell
 python .\neo4j\delivery_assignment.py
@@ -217,16 +217,17 @@ La tarea ejecuta:
 
 Para la entrega o video:
 
-1. Ejecutar `python .\neo4j\delivery_assignment.py` y mostrar el checklist.
-2. Levantar Neo4J y cargar datos con `load_graph.py`.
-3. Ejecutar `python .\neo4j\assign_routes.py`.
-4. Ejecutar `python .\neo4j\test_delivery_routes.py`.
-5. Abrir Neo4J Browser y correr `neo4j/delivery_assignment_queries.cypher`.
-6. Mostrar en Airflow que la tarea opcional existe y, si se activa, ejecuta la validacion local.
+1. Levantar Neo4J y cargar datos operacionales con `load_graph.py --source api`.
+2. Ejecutar `python .\neo4j\test_neo4j_graph.py` para validar el Punto 5.
+3. Ejecutar `python .\neo4j\assign_routes.py` para asignar rutas sobre el grafo.
+4. Ejecutar `python .\neo4j\test_delivery_routes.py` para validar asignaciones persistidas.
+5. Abrir Neo4J Browser y correr `neo4j/queries.cypher` y `neo4j/delivery_assignment_queries.cypher`.
+6. Opcional: ejecutar `python .\neo4j\delivery_assignment.py` como validacion local de respaldo de la heuristica.
+7. Mostrar en Airflow que la tarea opcional existe y puede ejecutar la validacion local sin afectar el flujo OLAP.
 
 ## Supuestos
 
-- Las distancias reales se aproximan desde coordenadas proyectadas porque la base operacional no almacena geolocalizacion real.
+- Las distancias se estiman desde coordenadas derivadas porque la base operacional actual no almacena latitud/longitud real.
 - Los repartidores se derivan de usuarios/admin disponibles para no crear una tabla operacional nueva.
 - La heuristica es intencionalmente simple y explicable: vecino mas cercano con capacidad por repartidor.
-- Si Neo4J no esta disponible, `delivery_assignment.py` permite demostrar el Punto 6 con datos simulados consistentes.
+- Si Neo4J no esta disponible, `delivery_assignment.py` permite validar la heuristica localmente como respaldo, pero la evidencia principal debe salir de `load_graph.py`, `assign_routes.py` y las consultas Cypher.

@@ -1,8 +1,9 @@
-"""Local delivery route assignment for Project 2 point 6.
+"""Fallback delivery route assignment validator for Project 2 point 6.
 
 This module contains a service-independent nearest-neighbor heuristic.  It is
-used as a reproducible demo when Neo4J is not running and as the reference
-logic for explaining how delivery orders are distributed among drivers.
+used as a reproducible local validation when Neo4J is not running.  The main
+project flow assigns delivery routes through Neo4J with operational data loaded
+from /graph/export.
 """
 
 from __future__ import annotations
@@ -87,7 +88,7 @@ def estimate_minutes(distance_km: float, speed_kmh: float = DEFAULT_SPEED_KMH) -
 
 
 def load_delivery_data(path: Path) -> tuple[dict[str, Location], list[Courier], list[DeliveryOrder]]:
-    """Read sample JSON and return locations, couriers and pending orders."""
+    """Read controlled JSON and return locations, couriers and pending orders."""
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     locations = {
@@ -241,10 +242,10 @@ def print_validation(locations: dict[str, Location], couriers: list[Courier], or
 
 
 def main() -> int:
-    """Run the standalone point 6 validation using sample data."""
+    """Run the standalone fallback validation for point 6."""
 
     default_path = Path(__file__).with_name("sample_delivery_data.json")
-    parser = argparse.ArgumentParser(description="Valida el Punto 6 con datos simulados.")
+    parser = argparse.ArgumentParser(description="Valida localmente la heuristica del Punto 6.")
     parser.add_argument("--data", type=Path, default=default_path, help="Archivo JSON de pedidos/repartidores.")
     args = parser.parse_args()
     try:

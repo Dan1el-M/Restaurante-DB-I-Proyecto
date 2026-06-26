@@ -129,7 +129,7 @@ start
 - `run_spark_transformations`: ejecuta el job PySpark existente del punto 2 usando el cluster Spark del compose.
 - `load_to_data_warehouse`: crea/actualiza schema, seed y vistas OLAP en Hive. Evita duplicar seed si `fact_orders` ya tiene datos.
 - `validate_warehouse`: ejecuta consultas reales en Hive para validar hechos y cubos OLAP.
-- `validate_delivery_routes_optional`: por defecto solo registra skip; con `ENABLE_DELIVERY_ROUTE_VALIDATION=true` ejecuta la demo local del Punto 6.
+- `validate_delivery_routes_optional`: por defecto solo registra skip; con `ENABLE_DELIVERY_ROUTE_VALIDATION=true` ejecuta una validacion local de respaldo para la heuristica del Punto 6.
 - `check_product_catalog_changes`: calcula hash de `dim_product` y decide si cambio el catalogo.
 - `reindex_elasticsearch_if_needed`: llama `POST http://search/reindex` si el catalogo cambio o si se fuerza.
 - `skip_reindex`: rama limpia si no hay cambios de catalogo.
@@ -191,7 +191,7 @@ SELECT * FROM cubo_ingresos_mes_categoria LIMIT 5;
 
 ## Validar Punto 6 desde Airflow
 
-La tarea opcional no toca Neo4J ni el warehouse. Ejecuta la heuristica local de `neo4j/delivery_assignment.py` con datos simulados para dejar evidencia del Punto 6 dentro del DAG:
+El flujo principal del Punto 6 se valida con Neo4J usando `load_graph.py --source api`, `assign_routes.py` y `test_delivery_routes.py`. La tarea opcional de Airflow ejecuta `neo4j/delivery_assignment.py` como respaldo local para dejar evidencia de la heuristica dentro del DAG sin acoplar el pipeline OLAP a Neo4J:
 
 ```powershell
 $env:ENABLE_DELIVERY_ROUTE_VALIDATION="true"
